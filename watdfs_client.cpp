@@ -21,7 +21,7 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
     // TODO: set up the RPC library by calling `rpcClientInit`.
     int initRet = rpcClientInit();
 
-    if (initRet) DLOG("Client Init Success");
+    if (initRet == 0) DLOG("Client Init Success");
     else DLOG("Client Init Fail");
 
     *ret_code = initRet;
