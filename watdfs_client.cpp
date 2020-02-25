@@ -259,7 +259,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     // The second argument is the mode. This argument is an input
     // only argument, and we treat it as a integer.
     arg_types[1] = (1u << ARG_INPUT) | (ARG_INT << 16u);
-    args[1] = (void *)mode;
+    args[1] = (void *)&mode;
 
     // The third argument is dev, an input only argument, which is
     // an long integer type.

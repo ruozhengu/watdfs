@@ -580,10 +580,10 @@ int main(int argc, char *argv[]) {
 
         // We need to register the function with the types and the name.
         ret = rpcRegister((char *)"fgetattr", argTypes, watdfs_fgetattr);
-        if (retCode < 0) {
+        if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: fgetattr fail ... ");
-	          return retCode;
+	          return ret;
         }
     }
 
