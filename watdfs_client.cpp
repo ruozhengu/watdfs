@@ -217,7 +217,8 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
         // error), then we need to make sure that the stat structure is filled
         // with 0s. Otherwise, FUSE will be confused by the contradicting return
         // values.
-        memset(statbuf, 0, sizeof(struct stat));
+        // memset(statbuf, 0, sizeof(struct stat));
+        DLOG("ggetattr get negative return code, read might fail ...");
     }
 
     // Clean up the memory we have allocated.
@@ -264,13 +265,13 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     // The third argument is dev, an input only argument, which is
     // an long integer type.
     arg_types[2] = (1u << ARG_INPUT) | (ARG_LONG << 16u);
-    args[2] = (void *) &dev;
+    args[2] = (void *)&dev;
 
     // The third argument is return code, an output only argument, which is
     // an integer type.
     arg_types[3] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
     int ret_code = 0;
-    args[3] = (void *) &ret_code;
+    args[3] = (void *)&ret_code;
 
     // Finally, the last position of the arg types is 0. There is no
     // corresponding arg.
@@ -409,7 +410,7 @@ int watdfs_cli_release(void *userdata, const char *path,
     // The second argument is the fi structure. This argument is an input
     // only argument, and we treat it as char array
     arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-        (uint) sizeof(struct fuse_file_info);
+        (uint)sizeof(struct fuse_file_info);
 
 
     args[1] = (void *)fi;
@@ -661,7 +662,7 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
   // an integer type.
   arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
   int ret_code = 0;
-  args[2] = (void *) &ret_code;
+  args[2] = (void *)&ret_code;
 
   // Finally, the last position of the arg types is 0. There is no
   // corresponding arg.
@@ -725,7 +726,7 @@ int watdfs_cli_fsync(void *userdata, const char *path,
   // only argument, and we treat it as char array
   arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
    (uint)sizeof(struct fuse_file_info);
-  args[1] = (void *)&fi;
+  args[1] = (void *)fi;
 
   // The second argument is return code, an output only argument, which is
   // an integer type.
@@ -797,7 +798,7 @@ int watdfs_cli_utimens(void *userdata, const char *path,
     // only argument, and we treat it as char array
     arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
       (uint)sizeof(struct timespec) * 2;
-    args[1] = (void *)&ts;
+    args[1] = (void *)ts;
 
     // The second argument is return code, an output only argument, which is
     // an integer type.
