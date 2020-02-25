@@ -51,7 +51,7 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
 }
 
 void watdfs_cli_destroy(void *userdata) {
-  
+
     int destoryRet = rpcClientDestroy();
 
     if (!destoryRet) DLOG("Client Destory Success");
@@ -517,7 +517,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       args[2] = writeRemain <= size ? (void *)&readRemain : (void *)&rpcSize;
       args[3] = (void *)&next;
       args[4] = (void *)fi;
-      args[5] = (void *)ret_code;
+      args[5] = (void *)&ret_code;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"read", arg_types, args);
@@ -527,7 +527,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 
       // HANDLE THE RETURN
       if (rpc_ret < 0) return -EINVAL;
-      else fxn_ret = retcode;
+      else fxn_ret = ret_code;
     } // END OF LOOP
 
     if (fxn_ret < 0) {
@@ -602,7 +602,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
       args[2] = writeRemain <= size ? (void *)&writeRemain : (void *)&rpcSize;
       args[3] = (void *)&next;
       args[4] = (void *)fi;
-      args[5] = (void *)ret_code;
+      args[5] = (void *)&ret_code;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"write", arg_types, args);
@@ -612,7 +612,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
       // HANDLE THE RETURN
       if (rpc_ret < 0) return -EINVAL;
-      else fxn_ret = retcode;
+      else fxn_ret = ret_code;
     } // END OF LOOP
 
     if (fxn_ret < 0) {
