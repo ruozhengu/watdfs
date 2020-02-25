@@ -165,6 +165,7 @@ int watdfs_open(int *argTypes, void **args) {
       DLOG("sys call: open failed");
     } else {
       fi->fh = sys_ret;
+      *ret= sys_ret;
       DLOG("sys call: open succeed");
     }
 
@@ -258,7 +259,7 @@ int watdfs_read(int *argTypes, void **args) {
     // Let sys_ret be the return code from the stat system call.
     int sys_ret = 0;
 
-    sys_ret = pwrite(fi->fh, buf, *size, *offset);
+    sys_ret = pread(fi->fh, buf, *size, *offset);
 
     if (sys_ret < 0) {
       *ret = -errno;
@@ -284,13 +285,13 @@ int watdfs_mknod(int *argTypes, void **args) {
     char *short_path = (char *)args[0];
 
     // The second argument is the mode, how to create file
-    mode_t *mode = (mode_t*)args[1];
+    mode_t *mode = (mode_t *)args[1];
 
     // The third argument is dev, indicate if file is special
-    dev_t *dev = (dev_t*)args[2];
+    dev_t *dev = (dev_t *)args[2];
 
     // The fourth argument is return code
-    int *ret = (int*) args[3];
+    int *ret = (int *)args[3];
 
     // Get the local file name, so we call our helper function which appends
     // the server_persist_dir to the given path.
@@ -537,11 +538,13 @@ int main(int argc, char *argv[]) {
         argTypes[3] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"getattr", argTypes, watdfs_getattr);
+        ret = rpcRegister((char *) "getattr", argTypes, watdfs_getattr);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: getattr fail ... ");
+            return ret;
         }
+        DLOG("Register: getattr succeed ... ");
     }
     // Register mknod
     {
@@ -558,12 +561,13 @@ int main(int argc, char *argv[]) {
         argTypes[4] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"mknod", argTypes, watdfs_mknod);
+        ret = rpcRegister((char *) "mknod", argTypes, watdfs_mknod);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: mknod fail ... ");
 	          return ret;
         }
+        DLOG("Register: mknod succeed ... ");
     }
 
     // Register fgetattr
@@ -581,12 +585,13 @@ int main(int argc, char *argv[]) {
         argTypes[4] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"fgetattr", argTypes, watdfs_fgetattr);
+        ret = rpcRegister((char *) "fgetattr", argTypes, watdfs_fgetattr);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: fgetattr fail ... ");
 	          return ret;
         }
+        DLOG("Register: fgetattr succeed ... ");
     }
 
     // Register open
@@ -602,11 +607,12 @@ int main(int argc, char *argv[]) {
         argTypes[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
         argTypes[3] = 0;
 
-        ret = rpcRegister((char *)"open", argTypes, watdfs_open);
+        ret = rpcRegister((char *) "open", argTypes, watdfs_open);
         if (ret < 0) {
             DLOG("Register: open fail ... ");
             return ret;
         }
+        DLOG("Register: open succeed ... ");
     }
 
     // Register release
@@ -622,18 +628,19 @@ int main(int argc, char *argv[]) {
         argTypes[3] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"release", argTypes, watdfs_release);
+        ret = rpcRegister((char *) "release", argTypes, watdfs_release);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: release fail ... ");
 	          return ret;
         }
+        DLOG("Register: release succeed ... ");
     }
 
     // Register write
     {
-        // There are 5 args for the function.
-        int argTypes[6];
+        // There are 6 args for the function.
+        int argTypes[7];
         // First is the path.
         argTypes[0] =
             (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | 1u;
@@ -647,18 +654,19 @@ int main(int argc, char *argv[]) {
         argTypes[6] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"write", argTypes, watdfs_release);
+        ret = rpcRegister((char *) "write", argTypes, watdfs_write);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: write fail ... ");
 	          return ret;
         }
+        DLOG("Register: write succeed ... ");
     }
 
     // Register read
     {
         // There are 5 args for the function.
-        int argTypes[6];
+        int argTypes[7];
         // First is the path.
         argTypes[0] =
             (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | 1u;
@@ -672,12 +680,13 @@ int main(int argc, char *argv[]) {
         argTypes[6] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"read", argTypes, watdfs_release);
+        ret = rpcRegister((char *) "read", argTypes, watdfs_read);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: read fail ... ");
 	          return ret;
         }
+        DLOG("Register: read succeed ... ");
     }
 
     // Register truncate
@@ -692,12 +701,13 @@ int main(int argc, char *argv[]) {
         argTypes[3] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"truncate", argTypes, watdfs_release);
+        ret = rpcRegister((char *) "truncate", argTypes, watdfs_truncate);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: truncate fail ... ");
 	          return ret;
         }
+        DLOG("Register: truncate succeed ... ");
     }
 
     // Register fsync
@@ -713,12 +723,13 @@ int main(int argc, char *argv[]) {
         argTypes[3] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"fsync", argTypes, watdfs_release);
+        ret = rpcRegister((char *) "fsync", argTypes, watdfs_fsync);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: fsync fail ... ");
 	          return ret;
         }
+        DLOG("Register: fsync succeed ... ");
     }
 
     // Register utimens
@@ -734,23 +745,23 @@ int main(int argc, char *argv[]) {
         argTypes[3] = 0;
 
         // We need to register the function with the types and the name.
-        ret = rpcRegister((char *)"utimens", argTypes, watdfs_release);
+        ret = rpcRegister((char *) "utimens", argTypes, watdfs_utimens);
         if (ret < 0) {
             // It may be useful to have debug-printing here.
             DLOG("Register: utimens fail ... ");
 	          return ret;
         }
+        DLOG("Register: utimens succeed ... ");
     }
 
     // TODO: Hand over control to the RPC library by calling `rpcExecute`.
     ret_code = rpcExecute();
 
     // handle error
-    if(ret_code){
-        DLOG("Executing server Fail...");
-    }
-    else{
+    if(!ret_code){
         DLOG("Executing server succeed...");
+    } else{
+        DLOG("Executing server Fail...");
     }
     // rpcExecute could fail so you may want to have debug-printing here, and
     // then you should return.
