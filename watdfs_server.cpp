@@ -13,6 +13,8 @@ INIT_LOG
 #include <errno.h>
 #include <cstring>
 #include <cstdlib>
+#include <fuse.h>
+
 
 // Global state server_persist_dir.
 char *server_persist_dir = nullptr;
