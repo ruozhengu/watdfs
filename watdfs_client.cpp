@@ -100,7 +100,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
     // The return code is not an array, so we need to hand args[2] an int*.
     // The int* could be the address of an integer located on the stack, or use
     // a heap allocated integer, in which case it should be freed.
-    int ret_code = 0
+    int ret_code = 0;
     args[2] = (void *)&ret_code;
 
     // Finally, the last position of the arg types is 0. There is no
@@ -188,7 +188,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
     // The return code is not an array, so we need to hand args[2] an int*.
     // The int* could be the address of an integer located on the stack, or use
     // a heap allocated integer, in which case it should be freed.
-    int ret_code = 0
+    int ret_code = 0;
     args[3] = (void *)&ret_code;
 
     // Finally, the last position of the arg types is 0. There is no
@@ -514,7 +514,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       // update actual args
       args[0] = (void *)path;
       args[1] = (void *)buf;
-      args[2] = writeRemain <= size ? (void *)&readRemain : (void *)&rpcSize;
+      args[2] = readRemain <= size ? (void *)&readRemain : (void *)&rpcSize;
       args[3] = (void *)&next;
       args[4] = (void *)fi;
       args[5] = (void *)&ret_code;
