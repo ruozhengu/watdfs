@@ -619,8 +619,8 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 }
 
 // READ AND WRITE DATA
-int watdfs_cli_write(void *userdata, const char *path, char *buf, size_t size,
-                    off_t offset, struct fuse_file_info *fi) {
+int watdfs_cli_write(void *userdata, const char *path, const char *buf,
+                     size_t size, off_t offset, struct fuse_file_info *fi) {
     /*
       write buf to the file at offset location with size amount.
       Sicne array has limited size, we need to make multiple rpcCall to perform write
