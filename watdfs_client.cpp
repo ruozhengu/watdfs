@@ -619,89 +619,162 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 }
 
 // READ AND WRITE DATA
-int watdfs_cli_write(void *userdata, const char *path, const char *buf,
-                     size_t size, off_t offset, struct fuse_file_info *fi) {
-    // Write size amount of data at offset of file from buf.
+int watdfs_cli_write(void *userdata, const char *path, char *buf, size_t size,
+                    off_t offset, struct fuse_file_info *fi) {
+    /*
+      write buf to the file at offset location with size amount.
+      Sicne array has limited size, we need to make multiple rpcCall to perform write
+    */
 
-    // Remember that size may be greater then the maximum array size of the RPC
-    // library.
-    // Read size amount of data at offset of file into buf.
-    DLOG("write is called from client...");
+    DLOG("Received write rpcCall from local client...");
+
+    // MAKE THE RPC CALL
+    size_t writeRemain = size, rpcSize = MAX_ARRAY_LEN;
+    int ret_code = 0, fxn_ret = 0, total = 0;
+    off_t next = offset;
+
+    while (writeRemain > rpcSize) {
+
+      // getattr has 7 arguments.
+      int ARG_COUNT = 6;
+
+      //initialization
+      void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
+      int arg_types[ARG_COUNT + 1];
+      int pathlen = strlen(path) + 1;
+
+      // Fill in the arguments
+
+      // path is an input only argument, and a char array.
+      arg_types[0] =
+        (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
+
+      //size is input only argument and long type.
+      arg_types[2] =  (1u << ARG_INPUT) | (ARG_LONG << 16u);
+
+      // offset is input only argument and long type .
+      arg_types[3] = (1u << ARG_INPUT) | (ARG_LONG << 16u);
+
+      // fi is an input only argument, and a char array.
+      arg_types[4] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
+        (uint)sizeof(struct fuse_file_info);
+
+      // return code is output only argument and is integer
+      arg_types[5] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
+
+      // set last position to 0
+      arg_types[6] = 0;
+
+      //second arg is buffer, which is input only and char array
+      arg_types[1] =
+        (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)rpcSize;
+
+      // update actual args
+      args[0] = (void *)path;
+      args[1] = (void *)buf;
+      args[2] = (void *)&rpcSize;
+      args[3] = (void *)&next;
+      args[4] = (void *)fi;
+      args[5] = (void *)&ret_code;
+
+      // calling rpc
+      int rpc_ret = rpcCall((char *)"write", arg_types, args);
+
+      if (rpc_ret < 0) {
+        DLOG("CURRENT WRITE RPC CALL FAIL");
+        fxn_ret = -EINVAL;
+        return fxn_ret;
+      }
+
+      if (ret_code < 0) {
+        DLOG("CURRENT WRITE SERVER FAIL");
+        fxn_ret = ret_code;
+        return fxn_ret;
+      }
+
+      if (ret_code < MAX_ARRAY_LEN){
+        DLOG("CURRENT WRITE FINISH + SUCCEEDDDD");
+        fxn_ret = total + ret_code;
+        return fxn_ret;
+      }
+
+      next += ret_code;
+      total += ret_code;
+      buf = buf + ret_code; //ptr arithmetic
+      writeRemain -= rpcSize;
+
+
+      // Clean up the memory we have allocated.
+      free(args);
+    } // END OF LOOP
+
+    rpcSize = writeRemain; //less than rpcsize
+
+    // getattr has 7 arguments.
     int ARG_COUNT = 6;
+
+    //initialization
     void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
     int arg_types[ARG_COUNT + 1];
     int pathlen = strlen(path) + 1;
 
-    arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) pathlen;
-    arg_types[2] = (1u << ARG_INPUT) | (ARG_LONG << 16u);
-    arg_types[3] = (1u << ARG_INPUT) | (ARG_LONG << 16u) ;
-    arg_types[4] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) sizeof(struct fuse_file_info) ;
-    arg_types[5] = (1u << ARG_OUTPUT) | (ARG_INT << 16u) ;
+    // Fill in the arguments
+
+    // path is an input only argument, and a char array.
+    arg_types[0] =
+      (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
+
+    //size is input only argument and long type.
+    arg_types[2] =  (1u << ARG_INPUT) | (ARG_LONG << 16u);
+
+    // offset is input only argument and long type .
+    arg_types[3] = (1u << ARG_INPUT) | (ARG_LONG << 16u);
+
+    // fi is an input only argument, and a char array.
+    arg_types[4] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
+      (uint)sizeof(struct fuse_file_info);
+
+    // return code is output only argument and is integer
+    arg_types[5] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
+
+    // set last position to 0
     arg_types[6] = 0;
 
-    int rpc_ret, total_ret = 0, fxn_ret = 0;
-    size_t size_remain = size;
+    //second arg is buffer, which is input only and char array
+    arg_types[1] =
+      (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)rpcSize;
+
+    // update actual args
     args[0] = (void *)path;
+    args[1] = (void *)buf;
+    args[2] = (void *)&rpcSize;
+    args[3] = (void *)&next;
     args[4] = (void *)fi;
+    args[5] = (void *)&ret_code;
 
+    int rpc_ret = rpcCall((char *)"write", arg_types, args);
 
-    while(size_remain > MAX_ARRAY_LEN){
-        size = MAX_ARRAY_LEN;
-        args[1] = (void *)buf;
-        args[2] = (void *) &size;
-        args[3] = (void *) &offset;
-        int write_ret;
-        args[5] = (void *) &write_ret;
-        arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) size;
-        rpc_ret = rpcCall((char *)"write", arg_types, args);
-
-        if(rpc_ret < 0){
-            DLOG( "rpcCall_read fail");  // rpc call fail
-            fxn_ret = -EINVAL;
-            return fxn_ret;
-        }
-        else if(write_ret < 0){        // server fail
-            DLOG("Imply read on server fail");
-            fxn_ret = write_ret;
-            return fxn_ret;
-        }
-        else if(write_ret < MAX_ARRAY_LEN){
-            DLOG("finish read on client"); // finish write because can't write more from buf
-            fxn_ret = total_ret + write_ret;
-            return fxn_ret;
-        }
-        else{
-            buf += write_ret; // update buf
-            offset += write_ret; // update offset
-            total_ret += write_ret; // update total read bytes
-            size_remain -= MAX_ARRAY_LEN; // remain size need to read
-        }
-    }
-
-    size = size_remain;
-    args[1] = (void *) buf;
-    args[2] = (void *) &size;
-    args[3] = (void *) &offset;
-    int write_ret;
-    args[5] = (void *) &write_ret;
-    arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) size;
-    rpc_ret = rpcCall((char *)"write", arg_types, args);
-
-    if (rpc_ret < 0) {
-        DLOG( "rpcCall_write fail");
+    if(rpc_ret < 0){
+        DLOG( "WRITE: LAST RPC CALL FAIL");
         fxn_ret = -EINVAL;
+    } else if(ret_code < 0){
+        DLOG( "WRITE: LAST SERVER FAIL");
+        fxn_ret = ret_code;
     } else {
-        fxn_ret = write_ret;
-    }
-
-    if (fxn_ret < 0) {
-        DLOG("Imply write on server fail");
-    }else{
-        fxn_ret = total_ret + write_ret; // update total read bytes
+        fxn_ret = total + ret_code;
     }
 
     free(args);
-    DLOG("Return code from server : %d", fxn_ret);
+
+
+    if (fxn_ret < 0) {
+      DLOG("Write rpcCall: return code is negative");
+      return fxn_ret;
+    }
+
+    DLOG("DONE: Write: return code is %d", fxn_ret);
+
+    // Return the requested bytes to read marks a success
     return fxn_ret;
 }
 
