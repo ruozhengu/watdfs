@@ -165,7 +165,7 @@ int watdfs_open(int *argTypes, void **args) {
       DLOG("sys call: open failed");
     } else {
       fi->fh = sys_ret;
-      *ret= sys_ret;
+      *ret= 0;
       DLOG("sys call: open succeed");
     }
 
@@ -600,8 +600,7 @@ int main(int argc, char *argv[]) {
         // detail).
         int argTypes[4];
         // First is the path.
-        argTypes[0] =
-            (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | 1u;
+        argTypes[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | 1u;
         argTypes[1] =
             (1u << ARG_INPUT) | (1u << ARG_OUTPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | 1u ;
         argTypes[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);

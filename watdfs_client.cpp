@@ -366,6 +366,7 @@ int watdfs_cli_open(void *userdata, const char *path,
         // Our RPC call succeeded. However, it's possible that the return code
         // from the server is not 0, that is it may be -errno. Therefore, we
         // should set our function return value to the retcode from the server.
+        DLOG("OPEN: SUCCESSSSSS")
         fxn_ret = ret_code;
     }
 
