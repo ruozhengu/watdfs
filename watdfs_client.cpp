@@ -541,7 +541,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       next += ret_code;
       total += ret_code;
       buf = buf + ret_code; //ptr arithmetic
-      readRemain -= rpcCalll;
+      readRemain -= rpcSize;
 
 
       // Clean up the memory we have allocated.
@@ -701,7 +701,7 @@ int watdfs_cli_write(void *userdata, const char *path, char *buf, size_t size,
       next += ret_code;
       total += ret_code;
       buf = buf + ret_code; //ptr arithmetic
-      writeRemain -= rpcCalll;
+      writeRemain -= rpcSize;
 
 
       // Clean up the memory we have allocated.
