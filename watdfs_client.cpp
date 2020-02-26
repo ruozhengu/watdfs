@@ -472,7 +472,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
-    while (readRemain > 0) {
+    while ((int)readRemain > 0) {
 
       // getattr has 7 arguments.
       int ARG_COUNT = 6;
@@ -561,7 +561,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
     DLOG("## SIZE RPCSIZE %d, %d ...", (int)size, (int)rpcSize);
 
-    while(writeRemain > 0) {
+    while(（int)writeRemain > 0) {
       DLOG("## LOOP %d ...", (int)writeRemain);
 
 
