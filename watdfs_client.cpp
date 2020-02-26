@@ -547,91 +547,113 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 
 int watdfs_cli_write(void *userdata, const char *path, const char *buf,
                      size_t size, off_t offset, struct fuse_file_info *fi) {
-    /*
-      write buf to the file at offset location with size amount.
-      Sicne array has limited size, we need to make multiple rpcCall to perform write
-    */
+    // Write size amount of data at offset of file from buf.
 
-    DLOG("Received write rpcCall from local client...");
+    int ARG_COUNT = 6;
+    int num_rpcs_required = ceil((float)size / (float)MAX_ARRAY_LEN);
+    size_t size_for_this_call = size;
+    off_t mod_offset = offset;
+    size_t max_array_len = MAX_ARRAY_LEN - 1;
+    // HANDLE THE RETURN
+    int fxn_ret = 0;
+    std::cout<<"NUM RPCs required for write = "<<num_rpcs_required<<std::endl;
 
-    // MAKE THE RPC CALL
-    size_t writeRemain = size, rpcSize = MAX_ARRAY_LEN-1, actualSize = MAX_ARRAY_LEN-1;
-    int ret_code = 0, fxn_ret = 0;
-    off_t next = offset;
+    for(int i=0; i < num_rpcs_required; i++){
+        std::cout<<"Size of this call = "<<size_for_this_call<<std::endl;
+        // Allocate space for the output arguments.
+        // Why do we pass everything as a pointer to (void *)?????????
+        void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
 
-    DLOG("## SIZE RPCSIZE %d, %d ...", (int)size, (int)rpcSize);
+        // Allocate the space for arg types, and one extra space for the null
+        // array element.
+        int arg_types[ARG_COUNT + 1];
 
-    while((int)writeRemain > 0) {
-      DLOG("## LOOP %d ...", (int)writeRemain);
+        // The path has string length (strlen) + 1 (for the null character).
+        int pathlen = strlen(path) + 1;
+
+        // Fill in the arguments
+        // The first argument is the path, it is an input only argument, and a char
+        // array. The length of the array is the length of the path.
+        arg_types[0] =
+            (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) pathlen;
+        // For arrays the argument is the array pointer, not a pointer to a pointer.
+        args[0] = (void *)path;
+
+        // The second argument is the buffer to write. This is an input only char array.
+        args[1] = (void *)buf;
+        if (size_for_this_call > max_array_len){
+            size_for_this_call -= max_array_len;
+            arg_types[1] =
+                 (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) max_array_len;
+            args[2] = (void *) &max_array_len;
+            std::cout<<"Going in recursive loop"<<std::endl;
+        } else{
+            arg_types[1] =
+                 (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) size_for_this_call;
+            args[2] = (void *) &size_for_this_call;
+            std::cout<<"Going in last loop"<<std::endl;
+        }
+        // For arrays the argument is the array pointer, not a pointer to a pointer.
+        // QUESTION: How to make sure the buf is of the correct size?
 
 
-      // getattr has 7 arguments.
-      int ARG_COUNT = 6;
+        // The third argument is size. This is an long, input only argument.
+        arg_types[2] =  (1u << ARG_INPUT) | (ARG_LONG << 16u);
 
-      //initialization
-      void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-      int arg_types[ARG_COUNT + 1];
-      int pathlen = strlen(path) + 1;
+        mod_offset = offset + (i * max_array_len);
 
-      // Fill in the arguments
+        // The fourth argument is offset. This is an long, input only argument.
+        arg_types[3] =  (1u << ARG_INPUT) | (ARG_LONG << 16u);
+        args[3] = (void *) &mod_offset;
 
-      // path is an input only argument, and a char array.
-      arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
+        // The fifth argument is the fuse_file_info struct. This is an struct passed
+        // as a char array. It is an input argument.
+        arg_types[4] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) |
+            (ARG_CHAR << 16u) | (uint) sizeof(struct fuse_file_info);
+        args[4] = (void *) fi;
 
-      //size is input only argument and long type.
-      arg_types[2] =  (1u << ARG_INPUT) | (ARG_LONG << 16u);
+        // The sixth argument is the return code, an output only argument, which is
+        // an integer.
+        int retcode = 0;
+        arg_types[5] =  (1u << ARG_OUTPUT) | (ARG_INT << 16u);
+        args[5] = (void *) &retcode;
 
-      // offset is input only argument and long type .
-      arg_types[3] = (1u << ARG_INPUT) | (ARG_LONG << 16u) ;
+        // Finally, the last position of the arg types is 0. There is no
+        // corresponding arg.
+        arg_types[6] = 0;
 
-      // fi is an input only argument, and a char array.
-      arg_types[4] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-          (uint)sizeof(struct fuse_file_info) ;
+        // MAKE THE RPC CALL
+        std::cout<<"***********RIGHT BEFORE THE WRITE CALL***********"<<std::endl;
+        std::cout<<"offset "<<mod_offset<<std::endl;
+        int* test = (int* )args[2];
+        std::cout<<"num bytes "<<*test<<std::endl;
+        int rpc_ret = rpcCall((char *)"write", arg_types, args);
 
-      // return code is output only argument and is integer
-      arg_types[5] = (1u << ARG_OUTPUT) | (ARG_INT << 16u) ;
+        if (rpc_ret < 0) {
+            // Something went wrong with the rpcCall, return a sensible return
+            // value. In this case lets return, -EINVAL
+            std::cout<<"ERROR: RPC call for write got fucked"<<std::endl;
+            fxn_ret = -EINVAL;
+            break;
+        } else {
+            // Our RPC call succeeded. However, it's possible that the return code
+            // from the server is not 0, that is it may be -errno. Therefore, we
+            // should set our function return value to the retcode from the server.
+            // TODO: set the function return value to the return code from the server.
+            std::cout<<"SUCCESS: RPC call for write succeeded. ";
+            std::cout<<"SUCCESS: The return code: number of bytes requested to be write: "<<retcode<<std::endl;
+            fxn_ret = retcode;
+        }
 
-      // set last position to 0
-      arg_types[6] = 0;
-
-      actualSize = writeRemain > rpcSize ? rpcSize : writeRemain;
-
-      //second arg is buffer, which is input only and char array
-      arg_types[1] =
-        (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)actualSize;
-
-      next += rpcSize;
-
-      // update actual args
-      args[0] = (void *)path;
-      args[1] = (void *)buf;
-      args[2] = writeRemain > rpcSize ? (void *)&rpcSize : (void *)&writeRemain;
-      args[3] = (void *)&next;
-      args[4] = (void *)fi;
-      args[5] = (void *)&ret_code;
-
-      // update variables
-      writeRemain -= rpcSize;
-
-      // calling rpc
-      int rpc_ret = rpcCall((char *)"write", arg_types, args);
-
-      // Clean up the memory we have allocated.
-      free(args);
-      DLOG("Write rpcCall: CURRENT return code is %d", ret_code);
-      // HANDLE THE RETURN
-      if (rpc_ret < 0) return -EINVAL;
-      else fxn_ret = ret_code;
-    } // END OF LOOP
-
-    if (fxn_ret < 0) {
-      DLOG("Write rpcCall: return code is negative");
-      return fxn_ret;
+        // Clean up the memory we have allocated.
+        free(args);
+    }
+    if (fxn_ret < 0){
+        return fxn_ret;
     }
 
-    DLOG("DONE: write: return code is %d", fxn_ret);
-
-    // Return the requested bytes to write marks a success
+    // Finally return the value we got from the server.
+    // Whats the final returnCode which we need to return??
     return size;
 }
 
