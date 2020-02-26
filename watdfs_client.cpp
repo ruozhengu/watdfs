@@ -473,7 +473,9 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
-    while ((int)readRemain > 0) {
+    int remain = ceil((double)size / (double)MAX_ARRAY_LEN);;
+
+    while (remain > 0) {
 
       // getattr has 7 arguments.
       int ARG_COUNT = 6;
@@ -522,8 +524,10 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       args[4] = (void *)fi;
       args[5] = (void *)&ret_code;
 
-      readRemain -= rpcSize;
-
+      if (readRemain > rpcSize) {
+        readRemain -= rpcSize;
+      }
+      remain -= 1;
       // calling rpc
       int rpc_ret = rpcCall((char *)"read", arg_types, args);
 
