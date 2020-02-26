@@ -555,7 +555,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     DLOG("Received write rpcCall from local client...");
 
     // MAKE THE RPC CALL
-    size_t writeRemain = size
+    size_t writeRemain = size;
     size_t rpcSize = MAX_ARRAY_LEN-1;
     size_t actualSize = MAX_ARRAY_LEN-1;
     int ret_code = 0, fxn_ret = 0;
