@@ -626,7 +626,7 @@ int watdfs_cli_write(void *userdata, const char *path, char *buf, size_t size,
       Sicne array has limited size, we need to make multiple rpcCall to perform write
     */
 
-    DLOG("Received read rpcCall from local client...");
+    DLOG("Received write rpcCall from local client...");
 
     // MAKE THE RPC CALL
     size_t writeRemain = size, rpcSize = MAX_ARRAY_LEN;
@@ -678,22 +678,22 @@ int watdfs_cli_write(void *userdata, const char *path, char *buf, size_t size,
       args[5] = (void *)&ret_code;
 
       // calling rpc
-      int rpc_ret = rpcCall((char *)"read", arg_types, args);
+      int rpc_ret = rpcCall((char *)"write", arg_types, args);
 
       if (rpc_ret < 0) {
-        DLOG("CURRENT READ RPC CALL FAIL");
+        DLOG("CURRENT WRITE RPC CALL FAIL");
         fxn_ret = -EINVAL;
         return fxn_ret;
       }
 
       if (ret_code < 0) {
-        DLOG("CURRENT READ SERVER FAIL");
+        DLOG("CURRENT WRITE SERVER FAIL");
         fxn_ret = ret_code;
         return fxn_ret;
       }
 
       if (ret_code < MAX_ARRAY_LEN){
-        DLOG("CURRENT READ FINISH + SUCCEEDDDD");
+        DLOG("CURRENT WRITE FINISH + SUCCEEDDDD");
         fxn_ret = total + ret_code;
         return fxn_ret;
       }
