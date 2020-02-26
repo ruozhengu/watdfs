@@ -559,9 +559,11 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
+    size_t remain_copy = writeRemain;
+
     DLOG("## SIZE RPCSIZE %d, %d ...", (int)size, (int)rpcSize);
 
-    while((int)writeRemain > 0) {
+    while(remain_copy > 0) {
       DLOG("## LOOP %d ...", (int)writeRemain);
 
 
@@ -614,6 +616,8 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
       if (writeRemain > rpcSize){
         writeRemain -= rpcSize;
       }
+
+      remain_copy -= rpcSize;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"write", arg_types, args);
