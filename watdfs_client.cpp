@@ -555,15 +555,17 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     DLOG("Received write rpcCall from local client...");
 
     // MAKE THE RPC CALL
-    size_t writeRemain = size, rpcSize = MAX_ARRAY_LEN-1, actualSize = MAX_ARRAY_LEN-1;
+    size_t writeRemain = size
+    size_t rpcSize = MAX_ARRAY_LEN-1;
+    size_t actualSize = MAX_ARRAY_LEN-1;
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
-    size_t remain_copy = writeRemain;
+    size_t remain = writeRemain;
 
     DLOG("## SIZE RPCSIZE %d, %d ...", (int)size, (int)rpcSize);
 
-    while(remain_copy > 0) {
+    while(remain > 0) {
       DLOG("## LOOP %d ...", (int)writeRemain);
 
 
@@ -617,7 +619,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
         writeRemain -= rpcSize;
       }
 
-      remain_copy -= rpcSize;
+      remain -= rpcSize;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"write", arg_types, args);
