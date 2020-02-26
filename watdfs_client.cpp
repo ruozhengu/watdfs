@@ -528,11 +528,11 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 
       if (ret_code < 0) {
         DLOG("CURRENT READ SERVER FAIL");
-        fxn_ret = read_ret;
+        fxn_ret = ret_code;
         return fxn_ret;
       }
 
-      if (read_ret < MAX_ARRAY_LEN){
+      if (ret_code < MAX_ARRAY_LEN){
         DLOG("CURRENT READ FINISH + SUCCEEDDDD");
         fxn_ret = total + ret_code;
         return fxn_ret;
@@ -597,9 +597,9 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     if(rpc_ret < 0){
         DLOG( "READ: LAST RPC CALL FAIL");
         fxn_ret = -EINVAL;
-    } else if(read_ret < 0){
+    } else if(ret_code < 0){
         DLOG( "READ: LAST SERVER FAIL");
-        fxn_ret = read_ret;
+        fxn_ret = ret_code;
     } else {
         fxn_ret = total + ret_code;
     }
@@ -619,7 +619,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 }
 
 // READ AND WRITE DATA
-int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
+int watdfs_cli_write(void *userdata, const char *path, char *buf, size_t size,
                     off_t offset, struct fuse_file_info *fi) {
     /*
       write buf to the file at offset location with size amount.
@@ -688,11 +688,11 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 
       if (ret_code < 0) {
         DLOG("CURRENT READ SERVER FAIL");
-        fxn_ret = read_ret;
+        fxn_ret = ret_code;
         return fxn_ret;
       }
 
-      if (read_ret < MAX_ARRAY_LEN){
+      if (ret_code < MAX_ARRAY_LEN){
         DLOG("CURRENT READ FINISH + SUCCEEDDDD");
         fxn_ret = total + ret_code;
         return fxn_ret;
@@ -757,9 +757,9 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     if(rpc_ret < 0){
         DLOG( "WRITE: LAST RPC CALL FAIL");
         fxn_ret = -EINVAL;
-    } else if(read_ret < 0){
+    } else if(ret_code < 0){
         DLOG( "WRITE: LAST SERVER FAIL");
-        fxn_ret = read_ret;
+        fxn_ret = ret_code;
     } else {
         fxn_ret = total + ret_code;
     }
