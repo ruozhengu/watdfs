@@ -187,7 +187,7 @@ int watdfs_write(int *argTypes, void **args) {
     char *short_path = (char *)args[0];
 
     // The second argument is the buffer, to write to file
-    const char *buf = (const char *)args[1];
+    const void *buf = args[1];
 
     // The third argument is size, how many to write
     size_t *size = (size_t *)args[2];
@@ -224,8 +224,8 @@ int watdfs_write(int *argTypes, void **args) {
     // Clean up the full path, it was allocated on the heap.
     free(full_path);
     DLOG("Returning code: %d", *ret);
-    // The RPC call succeeded, so return 0.
-    return 0;
+
+    return *ret;
 }
 
 int watdfs_read(int *argTypes, void **args) {
@@ -275,7 +275,7 @@ int watdfs_read(int *argTypes, void **args) {
     free(full_path);
     DLOG("Returning code: %d", *ret);
     // The RPC call succeeded, so return 0.
-    return 0;
+    return *ret;
 }
 
 int watdfs_mknod(int *argTypes, void **args) {
