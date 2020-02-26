@@ -561,7 +561,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
     DLOG("## SIZE RPCSIZE %d, %d ...", (int)size, (int)rpcSize);
 
-    while(（int)writeRemain > 0) {
+    while((int)writeRemain > 0) {
       DLOG("## LOOP %d ...", (int)writeRemain);
 
 
