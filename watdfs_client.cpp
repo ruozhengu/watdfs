@@ -8,7 +8,7 @@
 INIT_LOG
 
 #include "rpc.h"
-
+#include <iostream>
 /*
 You should implement functions in the following order: getattr, mknod, open, release, and fgetattr.
 These will allow you to support opening and creating a file. Next, you should implement: write, read, and truncate.
@@ -367,7 +367,7 @@ int watdfs_cli_open(void *userdata, const char *path,
         // from the server is not 0, that is it may be -errno. Therefore, we
         // should set our function return value to the retcode from the server.
         DLOG("OPEN: SUCCESSSSSS")
-        std::cout<<"OPEN: "<<fi->fh<<" "<<ret_code;
+        std::cout<<"OPEN: "<<fi->fh<<" "<<ret_code<<std::endl;
         fxn_ret = ret_code;
     }
 
