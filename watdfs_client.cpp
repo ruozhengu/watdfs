@@ -470,7 +470,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
-    while (readRemain >= 0) {
+    while (readRemain > 0) {
 
       // getattr has 7 arguments.
       int ARG_COUNT = 6;
@@ -502,23 +502,24 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       // set last position to 0
       arg_types[6] = 0;
 
-      actualSize = readRemain <= rpcSize ? readRemain : rpcSize;
+      actualSize = readRemain > rpcSize ? rpcSize : readRemain;
 
       //second arg is buffer, which is input only and char array
       arg_types[1] =
         (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)actualSize;
 
       // update variables
-      readRemain -= rpcSize;
       next += rpcSize;
 
       // update actual args
       args[0] = (void *)path;
       args[1] = (void *)buf;
-      args[2] = readRemain <= size ? (void *)&readRemain : (void *)&rpcSize;
+      args[2] = readRemain > rpcSize ? (void *)&rpcSize : (void *)&readRemain;
       args[3] = (void *)&next;
       args[4] = (void *)fi;
       args[5] = (void *)&ret_code;
+
+      readRemain -= rpcSize;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"read", arg_types, args);
@@ -556,7 +557,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
-    while(writeRemain >= 0) {
+    while(writeRemain > 0) {
 
       // getattr has 7 arguments.
       int ARG_COUNT = 6;
@@ -569,7 +570,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
       // Fill in the arguments
 
       // path is an input only argument, and a char array.
-      arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint) pathlen;
+      arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
 
       //size is input only argument and long type.
       arg_types[2] =  (1u << ARG_INPUT) | (ARG_LONG << 16u);
@@ -579,7 +580,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
       // fi is an input only argument, and a char array.
       arg_types[4] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-          (uint) sizeof(struct fuse_file_info) ;
+          (uint)sizeof(struct fuse_file_info) ;
 
       // return code is output only argument and is integer
       arg_types[5] = (1u << ARG_OUTPUT) | (ARG_INT << 16u) ;
@@ -587,23 +588,24 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
       // set last position to 0
       arg_types[6] = 0;
 
-      actualSize = writeRemain <= rpcSize ? writeRemain : rpcSize;
+      actualSize = writeRemain > rpcSize ? rpcSize : writeRemain;
 
       //second arg is buffer, which is input only and char array
       arg_types[1] =
         (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)actualSize;
 
-      // update variables
-      writeRemain -= rpcSize;
       next += rpcSize;
 
       // update actual args
       args[0] = (void *)path;
       args[1] = (void *)buf;
-      args[2] = writeRemain <= size ? (void *)&writeRemain : (void *)&rpcSize;
+      args[2] = writeRemain > rpcSize ? (void *)&rpcSize : (void *)&writeRemain;
       args[3] = (void *)&next;
       args[4] = (void *)fi;
       args[5] = (void *)&ret_code;
+
+      // update variables
+      writeRemain -= rpcSize;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"write", arg_types, args);
