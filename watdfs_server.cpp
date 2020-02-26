@@ -80,7 +80,7 @@ int watdfs_getattr(int *argTypes, void **args) {
       DLOG("sys call: getattr failed");
     } else {
       DLOG("sys call: getattr succeed");
-      *ret = sys_ret; //should be 0
+      *ret = 0; //should be 0
     }
 
     // Clean up the full path, it was allocated on the heap.
@@ -123,7 +123,7 @@ int watdfs_fgetattr(int *argTypes, void **args) {
       *ret = -errno;
       DLOG("sys call: fgetattr failed");
     } else {
-      *ret = sys_ret;
+      *ret = 0;
       DLOG("sys call: fgetattr succeed");
     }
 
@@ -165,6 +165,8 @@ int watdfs_open(int *argTypes, void **args) {
       DLOG("sys call: open failed");
     } else {
       fi->fh = sys_ret;
+      DLOG("**** OPEN sys_ret is : %d", sys_ret);
+
       *ret= 0;
       DLOG("sys call: open succeed");
     }
