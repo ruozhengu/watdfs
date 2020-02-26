@@ -109,7 +109,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
     // MAKE THE RPC CALL
     int rpc_ret = rpcCall((char *)"getattr", arg_types, args);
-
+    DLOG("DONE: getattr: code is %d", rpc_ret);
     // HANDLE THE RETURN
     // The integer value watdfs_cli_getattr will return.
     int fxn_ret = 0;
@@ -559,7 +559,11 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
+    DLOG("## SIZE RPCSIZE %ld, %ld ...", (uint)size, (uint)rpcSize);
+
     while(writeRemain > 0) {
+      DLOG("## LOOP %ld ...", (uint)writeRemain);
+
 
       // getattr has 7 arguments.
       int ARG_COUNT = 6;
@@ -614,7 +618,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
       // Clean up the memory we have allocated.
       free(args);
-
+      DLOG("Write rpcCall: CURRENT return code is %d", ret_code);
       // HANDLE THE RETURN
       if (rpc_ret < 0) return -EINVAL;
       else fxn_ret = ret_code;
