@@ -6,6 +6,7 @@
 #include "watdfs_client.h"
 #include "debug.h"
 INIT_LOG
+#include <math.h>
 
 #include "rpc.h"
 #include <iostream>
@@ -561,7 +562,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     int ret_code = 0, fxn_ret = 0;
     off_t next = offset;
 
-    size_t remain = writeRemain;
+    int remain = ceil((double)size / (double)MAX_ARRAY_LEN);;
 
     DLOG("## SIZE RPCSIZE %d, %d ...", (int)size, (int)rpcSize);
 
@@ -619,7 +620,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
         writeRemain -= rpcSize;
       }
 
-      remain -= rpcSize;
+      remain -= 1;
 
       // calling rpc
       int rpc_ret = rpcCall((char *)"write", arg_types, args);
