@@ -6,6 +6,7 @@
 #include "watdfs_client.h"
 #include "debug.h"
 INIT_LOG
+#include <math.h>
 
 #include "rpc.h"
 #include <iostream>
