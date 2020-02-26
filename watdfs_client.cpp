@@ -569,7 +569,6 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     // Whats the final returnCode which we need to return??
     return size;
 }
-
 int watdfs_cli_write(void *userdata, const char *path, const char *buf,
                      size_t size, off_t offset, struct fuse_file_info *fi) {
     // Write size amount of data at offset of file from buf.
@@ -681,6 +680,77 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     // Whats the final returnCode which we need to return??
     return size;
 }
+
+int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
+  // Called to release a file.
+  // SET UP THE RPC CALL
+  DLOG("Received truncate rpcCall from local client...");
+
+  // getattr has 4 arguments.
+  int ARG_COUNT = 3;
+
+  // Allocate space for the output arguments.
+  void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
+
+  // Allocate the space for arg types, and one extra space for the null
+  // array element.
+  int arg_types[ARG_COUNT + 1];
+
+  // The path has string length (strlen) + 1 (for the null character).
+  int pathlen = strlen(path) + 1;
+
+  // Fill in the arguments
+  // The first argument is the path, it is an input only argument, and a char
+  // array. The length of the array is the length of the path.
+  arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
+  // For arrays the argument is the array pointer, not a pointer to a pointer.
+  args[0] = (void *)path;
+
+  // The second argument is the newsize var. This argument is an input
+  // only argument, and we treat it as integer
+  arg_types[1] = (1u << ARG_INPUT) | (ARG_LONG << 16u);
+
+  args[1] = (void *)&newsize;
+
+  // The second argument is return code, an output only argument, which is
+  // an integer type.
+  arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
+  int ret_code = 0;
+  args[2] = (void *)&ret_code;
+
+  // Finally, the last position of the arg types is 0. There is no
+  // corresponding arg.
+  arg_types[3] = 0;
+
+  // MAKE THE RPC CALL
+  int rpc_ret = rpcCall((char *)"truncate", arg_types, args);
+
+  // HANDLE THE RETURN
+  int fxn_ret = 0;
+  if (rpc_ret < 0) {
+      // Something went wrong with the rpcCall, return a sensible return
+      // value. In this case lets return, -EINVAL
+      DLOG( "Truncate rpcCall: fail");
+      fxn_ret = -EINVAL;
+  } else {
+      // Our RPC call succeeded. However, it's possible that the return code
+      // from the server is not 0, that is it may be -errno. Therefore, we
+      // should set our function return value to the retcode from the server.
+      fxn_ret = ret_code;
+  }
+
+  if (fxn_ret < 0) DLOG("Truncate rpcCall: return code is negative");
+
+
+  // Clean up the memory we have allocated.
+  free(args);
+
+  DLOG("DONE: truncate: return code is %d", fxn_ret);
+
+  // Finally return the value we got from the server.
+  return fxn_ret;
+}
+
 int watdfs_cli_fsync(void *userdata, const char *path,
                      struct fuse_file_info *fi) {
   // Called to release a file.
