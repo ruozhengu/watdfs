@@ -246,7 +246,7 @@ int watdfs_read(int *argTypes, void **args) {
     off_t *offset = (off_t *)args[3];
 
     // The fifth argument is fuse_file_info , which is file descriptor
-    struct fuse_file_info *fi = (struct fuse_file_info *)args[4];
+    fuse_file_info *fi = (struct fuse_file_info *)args[4];
 
     // The sixth argument is return code,
     int *ret = (int *)args[5];
