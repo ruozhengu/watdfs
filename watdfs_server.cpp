@@ -237,7 +237,7 @@ int watdfs_read(int *argTypes, void **args) {
     char *short_path = (char *)args[0];
 
     // The second argument is the buffer, to write to file
-    char *buf = (char *)args[1];
+    const void *buf = args[1];
 
     // The third argument is size, how many to write
     size_t *size = (size_t *)args[2];
