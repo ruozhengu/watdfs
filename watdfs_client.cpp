@@ -367,7 +367,7 @@ int watdfs_cli_open(void *userdata, const char *path,
         // from the server is not 0, that is it may be -errno. Therefore, we
         // should set our function return value to the retcode from the server.
         DLOG("OPEN: SUCCESSSSSS")
-        std::cout<<"OPEN: "<<fi->fh<<" "<<ret_code <<std::endl;
+        std::cout<<"OPEN: "<<fi->fh<<" "<<ret_code;
         fxn_ret = ret_code;
     }
 
