@@ -9,56 +9,13 @@ INIT_LOG
 #include <math.h>
 #include "rpc.h"
 #include <iostream>
-#include <map>
-#include <string>
-#include <errno.h>
-// SETUP AND TEARDOWN
-void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
-                      time_t cache_interval, int *ret_code) {
-    // TODO: set up the RPC library by calling `rpcClientInit`.
-    int initRet = rpcClientInit();
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
-    if (initRet == 0) DLOG("Client Init Success");
-    else DLOG("Client Init Fail");
-
-    *ret_code = initRet;
-
-    // TODO: check the return code of the `rpcClientInit` call
-    // `rpcClientInit` may fail, for example, if an incorrect port was exported.
-
-    // It may be useful to print to stderr or stdout during debugging.
-    // Important: Make sure you turn off logging prior to submission!
-    // One useful technique is to use pre-processor flags like:
-    // # ifdef PRINT_ERR
-    // std::cerr << "Failed to initialize RPC Client" << std::endl;
-    // #endif
-    // Tip: Try using a macro for the above to minimize the debugging code.
-    // TODO Initialize any global state that you require for the assignment and return it.
-    // The value that you return here will be passed as userdata in other functions.
-    // In A1, you might not need it, so you can return `nullptr`.
-    void *userdata = nullptr;
-
-    // TODO: save `path_to_cache` and `cache_interval` (for A3).
-
-    // TODO: set `ret_code` to 0 if everything above succeeded else some appropriate
-    // non-zero value.
-
-    // Return pointer to global state data.
-    return userdata;
-}
-
-void watdfs_cli_destroy(void *userdata) {
-
-    int destoryRet = rpcClientDestroy();
-
-    if (!destoryRet) DLOG("Client Destory Success");
-    else DLOG("Client Destory Fail");
-
-    userdata = nullptr;
-}
 
 // GET FILE ATTRIBUTES
-int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
+int rpcCall_getattr(void *userdata, const char *path, struct stat *statbuf) {
     // SET UP THE RPC CALL
     DLOG("Received getattr call from local client...");
 
@@ -139,7 +96,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
     return fxn_ret;
 }
 
-int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
+int rpcCall_fgetattr(void *userdata, const char *path, struct stat *statbuf,
                         struct fuse_file_info *fi) {
     // SET UP THE RPC CALL
     DLOG("Received fgetattr call from local client...");
@@ -228,7 +185,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 }
 
 // CREATE, OPEN AND CLOSE
-int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
+int rpcCall_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     // Called to create a file.
     // SET UP THE RPC CALL
     DLOG("Received mknod rpcCall from local client...");
@@ -304,7 +261,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     return fxn_ret;
 
 }
-int watdfs_cli_open(void *userdata, const char *path,
+int rpcCall_open(void *userdata, const char *path,
                     struct fuse_file_info *fi) {
     // Called to open a file.
     // SET UP THE RPC CALL
@@ -363,7 +320,7 @@ int watdfs_cli_open(void *userdata, const char *path,
         // Our RPC call succeeded. However, it's possible that the return code
         // from the server is not 0, that is it may be -errno. Therefore, we
         // should set our function return value to the retcode from the server.
-        DLOG("OPEN: SUCCESSSSSS %d",ret_code);
+        DLOG("OPEN: SUCCESS %d",ret_code);
         DLOG("OPEN: %ld", fi->fh);
         fxn_ret = ret_code;
     }
@@ -380,7 +337,7 @@ int watdfs_cli_open(void *userdata, const char *path,
     return fxn_ret;
 }
 
-int watdfs_cli_release(void *userdata, const char *path,
+int rpcCall_release(void *userdata, const char *path,
                        struct fuse_file_info *fi) {
     // Called to release a file.
     // SET UP THE RPC CALL
@@ -455,7 +412,7 @@ int watdfs_cli_release(void *userdata, const char *path,
 }
 
 // READ AND WRITE DATA
-int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
+int rpcCall_read(void *userdata, const char *path, char *buf, size_t size,
                     off_t offset, struct fuse_file_info *fi) {
     /*
       write buf to the file at offset location with size amount.
@@ -615,7 +572,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 }
 
 // READ AND WRITE DATA
-int watdfs_cli_write(void *userdata, const char *path, const char *buf,
+int rpcCall_write(void *userdata, const char *path, const char *buf,
                      size_t size, off_t offset, struct fuse_file_info *fi) {
     /*
       write buf to the file at offset location with size amount.
@@ -774,7 +731,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     return fxn_ret;
 }
 
-int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
+int rpcCall_truncate(void *userdata, const char *path, off_t newsize) {
   // Called to release a file.
   // SET UP THE RPC CALL
   DLOG("Received truncate rpcCall from local client...");
@@ -844,7 +801,7 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
   return fxn_ret;
 }
 
-int watdfs_cli_fsync(void *userdata, const char *path,
+int rpcCall_fsync(void *userdata, const char *path,
                      struct fuse_file_info *fi) {
   // Called to release a file.
   // SET UP THE RPC CALL
@@ -915,7 +872,7 @@ int watdfs_cli_fsync(void *userdata, const char *path,
 }
 
 // CHANGE METADATA
-int watdfs_cli_utimens(void *userdata, const char *path,
+int rpcCall_utimens(void *userdata, const char *path,
                        const struct timespec ts[2]) {
 
     // Called to release a file.
