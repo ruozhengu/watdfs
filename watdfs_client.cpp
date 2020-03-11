@@ -59,7 +59,7 @@ void watdfs_cli_destroy(void *userdata) {
     if (!destoryRet) DLOG("Client Destory Success");
     else DLOG("Client Destory Fail");
 
-    userdata = nullptr;
+    userdata = NULL;
 }
 
 // GET FILE ATTRIBUTES
@@ -79,7 +79,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
       DLOG("file opened before, checking freshness ...");
 
       // check client server consistency
-      ret_code = freshness_check((openFiles *) userdata, path);
+      ret_code = freshness_check((openFiles *) userdata, path, 0);
 
       // handle return code
       if (ret_code < 0) {
@@ -89,7 +89,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
       // set to current time since it is just opened
       struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
-      target->tc = time(Null); // curr time
+      target->tc = time(NULL); // curr time
 
       sys_ret = stat(cache_path, statbuf);
       if (sys_ret < 0) {
@@ -167,7 +167,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
       DLOG("file opened before, checking freshness ...");
 
       // check client server consistency
-      ret_code = freshness_check();
+      ret_code = freshness_check((openFiles *) userdata, path, 0);
 
       // handle return code
       if (ret_code < 0) {
@@ -177,7 +177,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 
       // set to current time since it is just opened
       struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
-      target->tc = time(Null); // curr time
+      target->tc = time(NULL); // curr time
 
       sys_ret = fstat(target->client_mode, statbuf);
       if (sys_ret < 0) {
@@ -467,10 +467,10 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 
     int fxn_ret = 0;
 
-    int ret_code = read_freshness_check((openFiles *)userdata, path);
+    int ret_code = freshness_check((openFiles *)userdata, path, 0);
     struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
 
-    target->tc = time(Null); // curr time
+    target->tc = time(NULL); // curr time
 
     if (ret_code < 0){
       fxn_ret = ret_code;
@@ -494,10 +494,16 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     if (sys_ret < 0) return sys_ret;
 
 
-    write_freshness_check((openFiles *) userdata, path);
+    int ret_code = freshness_check((openFiles *) userdata, path, 1);
 
     struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
-    target->tc = time(Null); // curr time
+    target->tc = time(NULL); // curr time
+
+    if (ret_code < 0){
+      fxn_ret = ret_code;
+      DLOG("freshness check in write failed...");
+      return fxn_ret;
+    }
 
     // fxn_ret = sys_ret;
     return sys_ret;
