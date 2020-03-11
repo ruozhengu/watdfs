@@ -27,6 +27,8 @@ INIT_LOG
 #include <errno.h>
 #include <unistd.h>
 
+int readonly = O_RDONLY;
+
 // SETUP AND TEARDOWN
 void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
                       time_t cache_interval, int *ret_code) {
@@ -74,7 +76,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
     if (is_file_open((openFiles *)userdata), path) {
 
-      DLOG("file opened before, checking freshness ...")
+      DLOG("file opened before, checking freshness ...");
 
       // check client server consistency
       ret_code = freshness_check((openFiles *) userdata, path);
@@ -101,7 +103,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
     } else {
       //if file is never opened before
-      DLOG("first time opening the file, checking if it's on server ...")
+      DLOG("first time opening the file, checking if it's on server ...");
       struct stat sb; // on stack
 
       // return error code if file exists on server ...
@@ -162,7 +164,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 
     if (is_file_open((openFiles *)userdata), path) {
 
-      DLOG("file opened before, checking freshness ...")
+      DLOG("file opened before, checking freshness ...");
 
       // check client server consistency
       ret_code = freshness_check();
@@ -189,11 +191,11 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 
     } else {
       //if file is never opened before
-      DLOG("first time opening the file, checking if it's on server ...")
+      DLOG("first time opening the file, checking if it's on server ...");
       struct stat sb; // on stack
 
       // return error code if file exists on server ...
-      if (-2 == rpcCall_getattr(userdata, path, tmp_statbuf) {
+      if (-2 == rpcCall_getattr(userdata, path, &sb) {
 
         // exsistence leads to an error ...
         DLOG("FAILED: file exists on server");
@@ -300,7 +302,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     int sys_ret = mknod(cache_path, mode, dev);
 
     if (sys_ret < 0) {
-      DLOG("fail to create file ...")
+      DLOG("fail to create file ...");
       fxn_ret = -EINVAL;
     } else {
       fxn_ret = sys_ret;
@@ -321,6 +323,17 @@ int watdfs_cli_open(void *userdata, const char *path,
     // Called to open a file.
     // SET UP THE RPC CALL
     DLOG("Received open rpcCall from local client...");
+
+
+    if (is_file_open((openFiles *)userdata), path) return EMFILE;
+
+    // add to openFiles
+    (*((openFiles *)userdata))[std::string(path)] = new struct fileMetadata;
+
+    // update flags
+    if (readonly == (fi->flags & O_ACCMODE)) fi->flags = O_RDONLY; // server
+    else fi->flags = O_RDWR;
+
 
     // getattr has 4 arguments.
     int ARG_COUNT = 3;
@@ -382,6 +395,25 @@ int watdfs_cli_open(void *userdata, const char *path,
 
     if (fxn_ret < 0) DLOG("Open rpcCall: return code is negative");
 
+    int old_flag = fi->flags;
+    // update flags
+    if (readonly == (fi->flags & O_ACCMODE)) fi->flags = O_RDWR; // client
+    else fi->flags = O_RDWR;
+
+    int ret_code;
+    ret_code = download_to_client(userdata, path, fi);
+
+    if (ret_code < 0) {
+      fxn_ret = ret_code;
+    } else {
+      fxn_ret = 0;
+    }
+
+    // modify metadata
+    (*((openFiles *) userdata))[std::string(path)]->tc = time(NULL);
+
+    // set flag back
+    fi->flags = old_flag;
 
     // Clean up the memory we have allocated.
     free(args);
@@ -394,76 +426,37 @@ int watdfs_cli_open(void *userdata, const char *path,
 
 int watdfs_cli_release(void *userdata, const char *path,
                        struct fuse_file_info *fi) {
-    // Called to release a file.
-    // SET UP THE RPC CALL
+
+    int sys_ret = 0;
+    int ret_code = 0;
+    int fxn_ret = 0;
+
     DLOG("Received release rpcCall from local client...");
 
-    // getattr has 4 arguments.
-    int ARG_COUNT = 3;
-
-    // Allocate space for the output arguments.
-    void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-
-    // Allocate the space for arg types, and one extra space for the null
-    // array element.
-    int arg_types[ARG_COUNT + 1];
-
-    // The path has string length (strlen) + 1 (for the null character).
-    int pathlen = strlen(path) + 1;
-
-    // Fill in the arguments
-    // The first argument is the path, it is an input only argument, and a char
-    // array. The length of the array is the length of the path.
-    arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
-    // For arrays the argument is the array pointer, not a pointer to a pointer.
-    args[0] = (void *)path;
-
-    // The second argument is the fi structure. This argument is an input
-    // only argument, and we treat it as char array
-    arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-        (uint)sizeof(struct fuse_file_info);
-
-
-    args[1] = (void *)fi;
-
-
-    // The second argument is return code, an output only argument, which is
-    // an integer type.
-    arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
-    int ret_code = 0;
-    args[2] = (void *)&ret_code;
-
-    // Finally, the last position of the arg types is 0. There is no
-    // corresponding arg.
-    arg_types[3] = 0;
-
-    // MAKE THE RPC CALL
-    int rpc_ret = rpcCall((char *)"release", arg_types, args);
-
-    // HANDLE THE RETURN
-    int fxn_ret = 0;
-    if (rpc_ret < 0) {
-        // Something went wrong with the rpcCall, return a sensible return
-        // value. In this case lets return, -EINVAL
-        DLOG( "Release rpcCall: fail");
-        fxn_ret = -EINVAL;
-    } else {
-        // Our RPC call succeeded. However, it's possible that the return code
-        // from the server is not 0, that is it may be -errno. Therefore, we
-        // should set our function return value to the retcode from the server.
-        fxn_ret = ret_code;
+    if (!(readonly == (fi->flags & O_ACCMODE))) {
+      // not read only, push the updates to server
+       sys_ret = push_to_server(userdata, path, fi);
+       if (sys_ret < 0) return sys_ret;
     }
 
-    if (fxn_ret < 0) DLOG("Release rpcCall: return code is negative");
+   ret_code = rpcCall_release(userdata, path, fi);
+
+   if (ret_code < 0){
+     fxn_ret = ret_code;
+     return fxn_ret;
+   }
+
+   // now remove the files from openFiles and close it locally
+
+    struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
+
+    sys_ret = close(target->client_mode);
+
+    if (sys_ret < 0) fxn_ret = -errno;
+    else ((openFiles *)userdata)->erase(std::string(path));
 
 
-    // Clean up the memory we have allocated.
-    free(args);
-
-    DLOG("DONE: open: return code is %d", fxn_ret);
-
-    // Finally return the value we got from the server.
-    return fxn_ret;
+    return sys_ret;
 }
 
 // READ AND WRITE DATA

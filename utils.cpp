@@ -28,9 +28,9 @@ INIT_LOG
 
 // ------------ define util global var below ----------------------
 
-// global chache states to be init
-time_t cacheInterval;
-char *cachePath;
+// // global chache states to be init
+// time_t cacheInterval;
+// char *cachePath;
 
 // track descriptor and last access time of each file
 struct fileMetadata {
@@ -40,16 +40,16 @@ struct fileMetadata {
 }
 
 // track opened files by clients, just a type; key is not full path!
-typedef std::map<std::string, struct fileMetadata *> openFiles;
+// typedef std::map<std::string, struct fileMetadata *> openFiles;
 
 
 // ------------ define locks below ----------------------
 
 static int lock(const char *path, int mode) {
 
-    int num_args = 3;
-    int arg_types[num_args + 1];
-    void **args = (void**)malloc( num_args*sizeof(void*));
+    int ARG_COUNT = 3;
+    int arg_types[ARG_COUNT + 1];
+    void **args = (void**)malloc( ARG_COUNT*sizeof(void*));
     int pathlen = strlen(path) + 1;
 
     arg_types[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) |
@@ -86,9 +86,9 @@ static int lock(const char *path, int mode) {
 
 static int unlock(const char *path, int mode){
 
-    int num_args = 3;
-    int arg_types[num_args + 1];
-    void **args = (void**)malloc( num_args*sizeof(void*));
+    int ARG_COUNT = 3;
+    int arg_types[ARG_COUNT + 1];
+    void **args = (void**)malloc( ARG_COUNT*sizeof(void*));
 
     int pathlen = strlen(path) + 1;
 
