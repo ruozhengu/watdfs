@@ -414,9 +414,60 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
 
 bool freshness_check(openFiles *open_files, const char *full_path, const char *path) {
 
-  DLOG("Check Freshness", full_path);
+  DLOG("Check Read Freshness", full_path);
 
-  int sys_ret, fxn_ret, rpc_ret;
+  int sys_ret = 0;
+  int fxn_ret = 0;
+  int rpc_ret = 0;
+
+  struct fileMetadata * fm = get_file_metadata(open_file, path);
+  time_t Tc = fm->tc;
+  time_t T = time(0)
+  time_t T_client = statbuf.st_mtime;
+
+  struct stat* statbuf = new struct stat;
+  sys_ret = stat(full_path, statbuf);
+
+  if (sys_ret < 0) {
+    memset(statbuf, 0, sizeof(struct stat));
+    return sys_ret;
+  }
+
+  fxn_ret = sys_ret;
+
+  rpc_ret = rpcCall_getattr(userdata, path, statbuf);
+
+  if (rpc_ret < 0){
+    memset(statbuf, 0, sizeof(struct stat));
+    return sys_ret;
+  }
+
+  time_t T_server = statbuf.st_mtime;
+
+  bool is_time_within_interval = difftime(cacheInterval, difftime(T, Tc)) > 0;
+  bool is_client_server_diff = (difftime(T_client, T_server)) != 0;
+
+  if (!is_time_within_interval || !is_client_server_diff) {
+    struct fuse_file_info * fi = new struct fuse_file_info;
+
+    fi->fh = fm->server_mode;
+    fi->flags = O_RDONLY;
+
+    rpc_ret = download_to_client(userdata, path, fi);
+
+    if (rpc_ret < 0) delete fi;
+  }
+
+  return fxn_ret;
+}
+
+bool w_freshness_check(openFiles *open_files, const char *full_path, const char *path) {
+
+  DLOG("Check Write Freshness", full_path);
+
+  int sys_ret =0;
+  int fxn_ret = 0;
+  int rpc_ret = 0;;
 
   struct fileMetadata * fm = get_file_metadata(open_file, path);
   time_t Tc = fm->tc;
