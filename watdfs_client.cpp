@@ -19,8 +19,13 @@ INIT_LOG
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <fuse.h>
+#include <libgen.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <unistd.h>
 
 // SETUP AND TEARDOWN
 void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
@@ -62,136 +67,184 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
     int fxn_ret = 0;
     int ret_code = 0;
+    int sys_ret = 0;
+
 
     char *cache_path = get_cache_path(path);
+
     if (is_file_open((openFiles *)userdata), path) {
-      int fresh_check_ret = freshness_check();
+
+      DLOG("file opened before, checking freshness ...")
+
+      // check client server consistency
+      ret_code = freshness_check((openFiles *) userdata, path);
+
+      // handle return code
+      if (ret_code < 0) {
+        free(cache_path);
+        return ret_code;
+      }
+
+      // set to current time since it is just opened
+      struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
+      target->tc = time(Null); // curr time
+
+      sys_ret = stat(cache_path, statbuf);
+      if (sys_ret < 0) {
+          memset(statbuf, 0, sizeof(struct stat));
+          DLOG("getattr system call failed(1) ...");
+          free(cache_path);
+          fxn_ret = -errno;
+          return fxn_ret;
+      }
+      fxn_ret = ret_code;
+
+    } else {
+      //if file is never opened before
+      DLOG("first time opening the file, checking if it's on server ...")
+      struct stat sb; // on stack
+
+      // return error code if file exists on server ...
+      if (-2 == rpcCall_getattr(userdata, path, tmp_statbuf) {
+
+        // exsistence leads to an error ...
+        DLOG("FAILED: file exists on server");
+        fxn_ret = -2;
+        free(cache_path);
+        return fxn_ret;
+      }
+
+      struct fuse_file_info * fi = new struct fuse_file_info;
+      fi->flags = O_RDONLY; // update flags
+
+      ret_code = watdfs_cli_open(userdata, path, fi); // sys call
+      if (ret_code < 0){
+          delete fi;
+          free(cache_path);
+          return ret_code;
+      }
+
+      sys_ret = stat(cache_path, statbuf); // sys call
+
+      if (sys_ret < 0) {
+        memset(statbuf, 0, sizeof(struct stat));
+        fxn_ret = -errno;
+        delete fi;
+        free(cache_path);
+        return fxn_ret;
+      }
+
+      // release the file
+      fxn_ret = watdfs_cli_release(userdata, path, fi);
+
+      //TODO: delete fi?
     }
 
-    DLOG("DONE: getattr: return code is %d", fxn_ret);
+    free(cache_path); // eventually freed
+
+    DLOG("SUCCESS: getattr: return code is %d", fxn_ret);
 
     // Finally return the value we got from the server.
     return fxn_ret;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
                         struct fuse_file_info *fi) {
-    // SET UP THE RPC CALL
-    DLOG("Received fgetattr call from local client...");
 
-    // getattr has 3 arguments.
-    int ARG_COUNT = 4;
+    DLOG("NEW: Received fgetattr call from local client...");
 
-    // Allocate space for the output arguments.
-    void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-
-    // Allocate the space for arg types, and one extra space for the null
-    // array element.
-    int arg_types[ARG_COUNT + 1];
-
-    // The path has string length (strlen) + 1 (for the null character).
-    int pathlen = strlen(path) + 1;
-
-    // Fill in the arguments
-    // The first argument is the path, it is an input only argument, and a char
-    // array. The length of the array is the length of the path.
-    arg_types[0] =
-        (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
-    // For arrays the argument is the array pointer, not a pointer to a pointer.
-    args[0] = (void *)path;
-
-    // The second argument is the stat structure. This argument is an output
-    // only argument, and we treat it as a char array. The length of the array
-    // is the size of the stat structure, which we can determine with sizeof.
-    arg_types[1] = (1u << ARG_OUTPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-                   (uint)sizeof(struct stat); // statbuf
-    args[1] = (void *)statbuf;
-
-    // The third argument is the fi structure. This argument is an input
-    // only argument, and we treat it as a char array.
-    arg_types[2] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-        (uint)sizeof(struct fuse_file_info);
-    args[2] = (void *)fi;
-
-    // The fourth argument is the return code, an output only argument, which is
-    // an integer.
-    arg_types[3] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
-
-    // The return code is not an array, so we need to hand args[2] an int*.
-    // The int* could be the address of an integer located on the stack, or use
-    // a heap allocated integer, in which case it should be freed.
-    int ret_code = 0;
-    args[3] = (void *)&ret_code;
-
-    // Finally, the last position of the arg types is 0. There is no
-    // corresponding arg.
-    arg_types[4] = 0;
-
-    // MAKE THE RPC CALL
-    int rpc_ret = rpcCall((char *)"fgetattr", arg_types, args);
-
-    // HANDLE THE RETURN
     int fxn_ret = 0;
-    if (rpc_ret < 0) {
-        // Something went wrong with the rpcCall, return a sensible return
-        // value. In this case lets return, -EINVAL
-        DLOG( "rpcCall on fgetattr is failing");
-        fxn_ret = -EINVAL;
+    int ret_code = 0;
+    int sys_ret = 0;
+
+
+    char *cache_path = get_cache_path(path);
+
+    if (is_file_open((openFiles *)userdata), path) {
+
+      DLOG("file opened before, checking freshness ...")
+
+      // check client server consistency
+      ret_code = freshness_check();
+
+      // handle return code
+      if (ret_code < 0) {
+        free(cache_path);
+        return ret_code;
+      }
+
+      // set to current time since it is just opened
+      struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
+      target->tc = time(Null); // curr time
+
+      sys_ret = fstat(target->client_mode, statbuf);
+      if (sys_ret < 0) {
+          memset(statbuf, 0, sizeof(struct stat));
+          DLOG("getattr system call failed(1) ...");
+          free(cache_path);
+          fxn_ret = -errno;
+          return fxn_ret;
+      }
+      fxn_ret = ret_code;
+
     } else {
-        // Our RPC call succeeded. However, it's possible that the return code
-        // from the server is not 0, that is it may be -errno. Therefore, we
-        // should set our function return value to the retcode from the server.
-        fxn_ret = ret_code;
+      //if file is never opened before
+      DLOG("first time opening the file, checking if it's on server ...")
+      struct stat sb; // on stack
+
+      // return error code if file exists on server ...
+      if (-2 == rpcCall_getattr(userdata, path, tmp_statbuf) {
+
+        // exsistence leads to an error ...
+        DLOG("FAILED: file exists on server");
+        fxn_ret = -2;
+        free(cache_path);
+        return fxn_ret;
+      }
+
+      struct fuse_file_info * fi = new struct fuse_file_info;
+      fi->flags = O_RDWR; // update flags
+
+      ret_code = rpcCall_open(userdata, path, fi); // sys call
+      if (ret_code < 0){
+          delete fi;
+          free(cache_path);
+          return ret_code;
+      }
+      struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
+      sys_ret = fstat(target->client_mode, statbuf); // sys call
+
+      if (sys_ret < 0) {
+        memset(statbuf, 0, sizeof(struct stat));
+        fxn_ret = -errno;
+        delete fi;
+        free(cache_path);
+        return fxn_ret;
+      }
+
+      // close the file descriptor
+      fxn_ret = close(target->client_mode);
+
+      // remove closed file
+      ((openFiles *)userdata)->erase(std::string(path));
+
+      //TODO: delete fi?
     }
 
-    if (fxn_ret < 0) {
-        // Important: if the return code of watdfs_cli_getattr is negative (an
-        // error), then we need to make sure that the stat structure is filled
-        // with 0s. Otherwise, FUSE will be confused by the contradicting return
-        // values.
-        // memset(statbuf, 0, sizeof(struct stat));
-        DLOG("ggetattr get negative return code, read might fail ...");
-    }
+    free(cache_path); // eventually freed
 
-    // Clean up the memory we have allocated.
-    free(args);
-
-    DLOG("DONE: fgetattr: return code is %d", fxn_ret);
-
-    // Finally return the value we got from the server.
+    DLOG("SUCCESS: fgetattr: return code is %d", fxn_ret);
     return fxn_ret;
 }
 
 // CREATE, OPEN AND CLOSE
 int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
-    // Called to create a file.
-    // SET UP THE RPC CALL
+
     DLOG("Received mknod rpcCall from local client...");
 
-    // getattr has 4 arguments.
     int ARG_COUNT = 4;
-
-    // Allocate space for the output arguments.
     void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-
-    // Allocate the space for arg types, and one extra space for the null
-    // array element.
     int arg_types[ARG_COUNT + 1];
-
-    // The path has string length (strlen) + 1 (for the null character).
     int pathlen = strlen(path) + 1;
 
     // Fill in the arguments
@@ -241,17 +294,28 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
 
     if (fxn_ret < 0) DLOG("Mknod rpcCall: return code is negative");
 
+    char *cache_path = get_cache_path(path);
 
+    // creates a file system node using mknod sys call
+    int sys_ret = mknod(cache_path, mode, dev);
+
+    if (sys_ret < 0) {
+      DLOG("fail to create file ...")
+      fxn_ret = -EINVAL;
+    } else {
+      fxn_ret = sys_ret;
+    }
 
     // Clean up the memory we have allocated.
     free(args);
+    free(full_path);
 
     DLOG("DONE: mknod: return code is %d", fxn_ret);
 
-    // Finally return the value we got from the server.
     return fxn_ret;
-
 }
+
+
 int watdfs_cli_open(void *userdata, const char *path,
                     struct fuse_file_info *fi) {
     // Called to open a file.
