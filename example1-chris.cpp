@@ -1028,56 +1028,56 @@ static int fetch_if_needed(void *userdata, const char *cache_path, const char *p
 
 // watdfs_cli_*:
 // SETUP AND TEARDOWN
-void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache, time_t cache_interval, int *ret_code) {
-
-    // temp loggers:
-    LOGGER("O_ACCMODE=",O_ACCMODE);
-    LOGGER("O_RDONLY=",O_RDONLY);
-    LOGGER("O_WRONLY=",O_WRONLY);
-    LOGGER("O_RDWR=",O_RDWR);
-
-
-    // TODO: set `ret_code` to 0 if everything above succeeded else some appropriate
-    // non-zero value.
-    *ret_code = 0;
-
-    // TODO: set up the RPC library by calling `rpcClientInit`.
-    int ret = rpcClientInit();
-
-    if (ret < 0) {
-    # ifdef PRINT_ERR
-        std::cerr << "rpcClientInit failed: ret=" << ret << std::endl;
-    #endif
-    }
-
-    // TODO: check the return code of the `rpcClientInit` call
-    // `rpcClientInit` may fail, for example, if an incorrect port was exported.
-    *ret_code = ret;
-
-    // It may be useful to print to stderr or stdout during debugging.
-    // Important: Make sure you turn off logging prior to submission!
-    // One useful technique is to use pre-processor flags like:
-    // # ifdef PRINT_ERR
-    // std::cerr << "Failed to initialize RPC Client" << std::endl;
-    // #endif
-    // Tip: Try using a macro for the above to minimize the debugging code.
-
-    // TODO Initialize any global state that you require for the assignment and return it.
-    // The value that you return here will be passed as userdata in other functions.
-    // In A1, you might not need it, so you can return `nullptr`.
-
-    file_modes_t *m = new std::map<std::string, file_info>();
-    void *userdata = (void *)m;
-    LOGGER((char*)"watdfs_cli_init: map init done.");
-
-    // TODO: save `path_to_cache` and `cache_interval` (for A3).
-    CACHE_DIR = (char *)malloc(strlen(path_to_cache)+1);
-    strcpy(CACHE_DIR, path_to_cache);
-    CACHE_INTERVAL = cache_interval;
-
-    // Return pointer to global state data.
-    return userdata;
-}
+// void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache, time_t cache_interval, int *ret_code) {
+//
+//     // temp loggers:
+//     LOGGER("O_ACCMODE=",O_ACCMODE);
+//     LOGGER("O_RDONLY=",O_RDONLY);
+//     LOGGER("O_WRONLY=",O_WRONLY);
+//     LOGGER("O_RDWR=",O_RDWR);
+//
+//
+//     // TODO: set `ret_code` to 0 if everything above succeeded else some appropriate
+//     // non-zero value.
+//     *ret_code = 0;
+//
+//     // TODO: set up the RPC library by calling `rpcClientInit`.
+//     int ret = rpcClientInit();
+//
+//     if (ret < 0) {
+//     # ifdef PRINT_ERR
+//         std::cerr << "rpcClientInit failed: ret=" << ret << std::endl;
+//     #endif
+//     }
+//
+//     // TODO: check the return code of the `rpcClientInit` call
+//     // `rpcClientInit` may fail, for example, if an incorrect port was exported.
+//     *ret_code = ret;
+//
+//     // It may be useful to print to stderr or stdout during debugging.
+//     // Important: Make sure you turn off logging prior to submission!
+//     // One useful technique is to use pre-processor flags like:
+//     // # ifdef PRINT_ERR
+//     // std::cerr << "Failed to initialize RPC Client" << std::endl;
+//     // #endif
+//     // Tip: Try using a macro for the above to minimize the debugging code.
+//
+//     // TODO Initialize any global state that you require for the assignment and return it.
+//     // The value that you return here will be passed as userdata in other functions.
+//     // In A1, you might not need it, so you can return `nullptr`.
+//
+//     file_modes_t *m = new std::map<std::string, file_info>();
+//     void *userdata = (void *)m;
+//     LOGGER((char*)"watdfs_cli_init: map init done.");
+//
+//     // TODO: save `path_to_cache` and `cache_interval` (for A3).
+//     CACHE_DIR = (char *)malloc(strlen(path_to_cache)+1);
+//     strcpy(CACHE_DIR, path_to_cache);
+//     CACHE_INTERVAL = cache_interval;
+//
+//     // Return pointer to global state data.
+//     return userdata;
+// }
 
 void watdfs_cli_destroy(void *userdata) {
     // TODO: clean up your userdata state.

@@ -1,0 +1,377 @@
+//
+// Starter code for CS 454/654
+// You SHOULD change this file
+//
+
+#include "watdfs_client.h"
+#include "watdfs_client_direct_access.cpp"
+
+#include "debug.h"
+INIT_LOG
+#include <math.h>
+#include "rw_lock.h"
+#include "rpc.h"
+#include <iostream>
+#include <map>
+#include <string>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
+// ------------ define util global var below ----------------------
+
+// global chache states to be init
+time_t cacheInterval;
+char *cachePath;
+
+// track descriptor and last access time of each file
+struct fileMetadata {
+  int client_mode;
+  int server_mode;
+  time_t tc;
+}
+
+// track opened files by clients, just a type; key is not full path!
+typedef std::map<std::string, struct fileMetadata *> openFiles;
+
+
+// ------------ define util functions below ----------------------
+
+char *get_cache_path(const char* rela_path) {
+  int rela_path_len = strlen(rela_path);
+  int dir_len = strlen(cachePath);
+
+  int full_path_len = dir_len + rela_path_len + 1;
+
+  char *full_path = (char *) malloc(full_path_len);
+
+  strcpy(full_path, cachePath);
+  strcat(full_path, rela_path);
+
+  return full_path;
+}
+
+bool is_file_open(openFiles *open_files, const char *path) {
+  string p = std::string(path);
+  return open_files->count(p) > 0 ? true : false;
+}
+
+struct fileMetadata * get_file_metadata(openFiles *open_files, const char *path) {
+  return (*open_files)[std::string(path)];
+}
+
+// to be called in download function
+// to write from server to local
+static int _write(void *userdata, const char *path, const char *buf, size_t size,
+                    off_t offset, struct fuse_file_info *fi) {
+  (void *) userdata;
+  int sys_ret = pwrite(fi->fh, buf, size, offset);
+
+  // handle error
+  if (sys_ret < 0) {
+    DLOG("write in download failed!");
+    sys_ret = -errno;
+  }
+  return sys_ret;
+}
+
+// to be called in upload function
+// to read from local to server
+static int read_(void *userdata, const char *path, const char *buf, size_t size,
+                    off_t offset, struct fuse_file_info *fi) {
+
+    int sys_ret = pread(fi->fh, buf, size, offset);
+
+    // handle error
+    if (sys_ret < 0) {
+      DLOG("write in download failed!");
+      sys_ret = -errno;
+    }
+    return sys_ret;
+}
+
+
+static int download_to_client(void *userdata, const char *path, struct fuse_file_info *fi){
+
+    DLOG("Running download function...");
+
+    int sys_ret = lock(path, RW_READ_LOCK);
+
+    if (sys_ret < 0){
+
+      DLOG("fail to acquire the lock...");
+      return sys_ret;
+
+    } else {
+
+      DLOG("got the lock...");
+
+      int fxn_ret = sys_ret;
+
+      struct stat statbuf; // on stack so no need to delete
+
+      int rpc_ret = rpcCall_getattr(userdata, path, &statbuf);
+
+      if (rpc_ret < 0){
+          unlock(path, RW_READ_LOCK);
+          return rpc_ret;
+      }
+
+      LOG("Download: getattr step good...");
+
+      char *cache_path = get_cache_path(path);
+
+      time_t server_last_open = statbuf.st_mtime;
+
+      size_t size = statbuf.st_size;
+
+      // open local file
+      sys_ret = open(cache_path, O_CREAT | O_RDWR, S_IRWXU);
+
+      if (sys_ret < 0) {
+        LOG("FAIL: open local file");
+        free(cache_path);
+        unlock(path, RW_READ_LOCK);
+        return -errno;
+      }
+
+      int local_fh_retcode = sys_ret;
+      struct fileMetadata *target = (*((openFiles *) userdata))[path];
+      target->client_mode = local_fh_retcode;
+
+      // step1: truncate local file
+      sys_ret = truncate(cache_path, (off_t)size);
+
+      if (sys_ret < 0){
+          free(cache_path);
+          unlock(path, RW_READ_LOCK);
+          return -errno;
+      }
+
+      LOG("Download: truncation step good...");
+
+      // read the file from server
+      char *buf = (char *) malloc(((off_t) size) * sizeof(char));
+
+      rpc_ret = rpcCall_read(userdata, path, buf, size, 0, fi);
+
+      if (rpc_ret < 0){
+          free(buf);
+          free(cache_path);
+          unlock(path, RW_READ_LOCK);
+          return rpc_ret;
+      }
+
+      LOG("Download: read step good...");
+
+      // write from server to local
+      sys_ret = _write(userdata, path, buf, size, 0, fi); //TODO: not sure
+
+      if (sys_ret < 0){
+        unlock(path, RW_READ_LOCK);
+        free(buffer);
+        free(cache_path);
+        return sys_ret;
+      }
+
+      LOG("Download: write step good...");
+
+      // update metadata
+      target->client_mode = local_fh_retcode;// server
+      target->server_mode = fi->fh;// local
+
+      // update Tclient = Tserver and Tc = current time
+      struct timespec *ts = new struct timespec[2];
+
+      ts[0] = statbuf.st_atim;
+      ts[1] = statbuf.st_mtim;
+
+      int dirfd = 0;
+      int flag = 0;
+      // update the timestamps of a file by calling utimensat
+      sys_ret = utimensat(dirfd, cache_path, ts, flag);
+
+      LOG("Download: change metadata's step good...");
+
+
+      sys_ret = unlock(path, RW_READ_LOCK);
+
+      if (sys_ret < 0){
+          free(buf);
+          free(cache_path);
+          delete ts;
+          return sys_ret;
+      }
+
+      LOG("Download lock released ...");
+
+
+      free(buf);
+      free(cache_path);
+
+
+      fxn_ret = sys_ret;
+      return fxn_ret;
+    }
+}
+
+static int push_to_server(void *userdata, const char *path, struct fuse_file_info *fi){
+
+    DLOG("Running upload function...");
+
+    int sys_ret = lock(path, RW_WRITE_LOCK);
+
+    if (sys_ret < 0){
+
+      DLOG("fail to acquire the lock...");
+      return sys_ret;
+
+    } else {
+
+      DLOG("got the lock...");
+
+      int fxn_ret = sys_ret;
+
+      struct stat statbuf; // on stack so no need to delete
+      char *cache_path = get_cache_path(path);
+      sys_ret = stat(cache_path, &statbuf);
+
+      if (sys_ret < 0) {
+          memset(statbuf, 0, sizeof(struct stat));
+          return sys_ret;
+      }
+      fxn_ret = sys_ret;
+
+      time_t server_last_open = statbuf.st_mtime;
+      size_t size = statbuf.st_size;
+      char *buf = (char *) malloc(((off_t) size) * sizeof(char));
+
+      // step1: truncate local file
+      sys_ret = rpcCall_truncate(userdata, path, (off_t) size);
+
+      if (sys_ret < 0){
+          free(cache_path);
+          free(buf);
+          unlock(path, RW_WRITE_LOCK);
+          return sys_ret;
+      }
+
+      LOG("Upload: truncation step good...");
+
+      // read the file from client
+
+      rpc_ret = _read(userdata, path, buf, size, 0, fi);
+
+      if (rpc_ret < 0){
+          free(buf);
+          free(cache_path);
+          unlock(path, RW_WRITE_LOCK);
+          return rpc_ret;
+      }
+
+      LOG("Upload: read step good...");
+
+      // write from server to local
+      sys_ret = rpcCall_write(userdata, path, buf, size, 0, fi);
+
+      if (sys_ret < 0){
+        unlock(path, RW_WRITE_LOCK);
+        free(buffer);
+        free(cache_path);
+        return sys_ret;
+      }
+
+      fxn_ret = sys_ret;
+
+      LOG("Upload: write step good...");
+
+
+      // update Tclient = Tserver and Tc = current time
+      struct timespec *ts = new struct timespec[2];
+
+      ts[0] = statbuf.st_atim;
+      ts[1] = statbuf.st_mtim;
+
+
+      // update the timestamps of a file by calling utimensat
+      sys_ret = rpcCall_utimens(userdata, path, ts);
+
+      fxn_ret = sys_ret;
+
+      if (sys_ret < 0) {
+        free(cache_path);
+        free(buf);
+        unlock(path, RW_WRITE_LOCK);
+        return fxn_ret;
+      }
+
+      LOG("Upload: utimens step good...");
+
+      sys_ret = unlock(path, RW_WRITE_LOCK);
+
+      if (sys_ret < 0){
+          free(buf);
+          free(cache_path);
+          delete ts;
+          return sys_ret;
+      }
+      LOG("Upload lock released ...");
+
+
+      free(buf);
+      free(cache_path);
+
+      fxn_ret = sys_ret;
+      return fxn_ret;
+    }
+}
+
+bool freshness_check(openFiles *open_files, const char *full_path, const char *path) {
+
+  DLOG("Check Freshness", full_path);
+
+  int sys_ret, fxn_ret, rpc_ret;
+
+  struct fileMetadata * fm = get_file_metadata(open_file, path);
+  time_t Tc = fm->tc;
+  time_t T = time(0)
+  time_t T_client = statbuf.st_mtime;
+
+  struct stat* statbuf = new struct stat;
+  sys_ret = stat(full_path, statbuf);
+
+  if (sys_ret < 0) {
+    memset(statbuf, 0, sizeof(struct stat));
+    return sys_ret;
+  }
+
+  fxn_ret = sys_ret;
+
+  rpc_ret = rpcCall_getattr(userdata, path, statbuf);
+
+  if (rpc_ret < 0){
+    memset(statbuf, 0, sizeof(struct stat));
+    return sys_ret;
+  }
+
+  time_t T_server = statbuf.st_mtime;
+
+  bool is_time_within_interval = difftime(cacheInterval, difftime(T, Tc)) > 0;
+  bool is_client_server_diff = (difftime(T_client, T_server)) != 0;
+
+  if (!is_time_within_interval || !is_client_server_diff) {
+    struct fuse_file_info * fi = new struct fuse_file_info;
+
+    fi->fh = fm->server_mode;
+    fi->flags = O_RDONLY;
+
+    rpc_ret = download_to_client(userdata, path, fi);
+
+    if (rpc_ret < 0) delete fi;
+  }
+
+  return fxn_ret;
+}

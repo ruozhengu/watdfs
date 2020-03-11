@@ -4,18 +4,28 @@
 //
 
 #include "watdfs_client.h"
+#include "utils.h"
+#include "watdfs_client_direct_access.cpp"
+
 #include "debug.h"
 INIT_LOG
 #include <math.h>
+#include "rw_lock.h"
 #include "rpc.h"
 #include <iostream>
 #include <map>
 #include <string>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
+
 // SETUP AND TEARDOWN
 void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
                       time_t cache_interval, int *ret_code) {
-    // TODO: set up the RPC library by calling `rpcClientInit`.
+    // set up the RPC library by calling `rpcClientInit`.
     int initRet = rpcClientInit();
 
     if (initRet == 0) DLOG("Client Init Success");
@@ -23,32 +33,20 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
 
     *ret_code = initRet;
 
-    // TODO: check the return code of the `rpcClientInit` call
-    // `rpcClientInit` may fail, for example, if an incorrect port was exported.
-
-    // It may be useful to print to stderr or stdout during debugging.
-    // Important: Make sure you turn off logging prior to submission!
-    // One useful technique is to use pre-processor flags like:
-    // # ifdef PRINT_ERR
-    // std::cerr << "Failed to initialize RPC Client" << std::endl;
-    // #endif
-    // Tip: Try using a macro for the above to minimize the debugging code.
-    // TODO Initialize any global state that you require for the assignment and return it.
-    // The value that you return here will be passed as userdata in other functions.
-    // In A1, you might not need it, so you can return `nullptr`.
-    void *userdata = nullptr;
-
-    // TODO: save `path_to_cache` and `cache_interval` (for A3).
-
-    // TODO: set `ret_code` to 0 if everything above succeeded else some appropriate
-    // non-zero value.
+    // init global trackers
+    openFiles *userdata=  new std::map<std::string, fileMetadata>(); //TODO: free it
+    cacheInterval = cache_interval;
+    cachePath = (char *)malloc(strlen(path_to_cache) + 1);
+    strcpy(cachePath, path_to_cache);
 
     // Return pointer to global state data.
-    return userdata;
+    return (void *) userdata;
 }
 
+//TODO: might need to free path as well
 void watdfs_cli_destroy(void *userdata) {
 
+    delete userdata;
     int destoryRet = rpcClientDestroy();
 
     if (!destoryRet) DLOG("Client Destory Success");
@@ -60,84 +58,34 @@ void watdfs_cli_destroy(void *userdata) {
 // GET FILE ATTRIBUTES
 int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
     // SET UP THE RPC CALL
-    DLOG("Received getattr call from local client...");
+    DLOG("NEW: Received getattr call from local client...");
 
-    // getattr has 3 arguments.
-    int ARG_COUNT = 3;
-
-    // Allocate space for the output arguments.
-    void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-
-    // Allocate the space for arg types, and one extra space for the null
-    // array element.
-    int arg_types[ARG_COUNT + 1];
-
-    // The path has string length (strlen) + 1 (for the null character).
-    int pathlen = strlen(path) + 1;
-
-    // Fill in the arguments
-    // The first argument is the path, it is an input only argument, and a char
-    // array. The length of the array is the length of the path.
-    arg_types[0] =
-        (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
-    // For arrays the argument is the array pointer, not a pointer to a pointer.
-    args[0] = (void *)path;
-
-    // The second argument is the stat structure. This argument is an output
-    // only argument, and we treat it as a char array. The length of the array
-    // is the size of the stat structure, which we can determine with sizeof.
-    arg_types[1] = (1u << ARG_OUTPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-                   (uint)sizeof(struct stat); // statbuf
-    args[1] = (void *)statbuf;
-
-    // The third argument is the return code, an output only argument, which is
-    // an integer.
-    arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u); // return code
-
-    // The return code is not an array, so we need to hand args[2] an int*.
-    // The int* could be the address of an integer located on the stack, or use
-    // a heap allocated integer, in which case it should be freed.
-    int ret_code = 0;
-    args[2] = (void *)&ret_code;
-
-    // Finally, the last position of the arg types is 0. There is no
-    // corresponding arg.
-    arg_types[3] = 0;
-
-    // MAKE THE RPC CALL
-    int rpc_ret = rpcCall((char *)"getattr", arg_types, args);
-    DLOG("DONE: getattr: code is %d", rpc_ret);
-    // HANDLE THE RETURN
-    // The integer value watdfs_cli_getattr will return.
     int fxn_ret = 0;
-    if (rpc_ret < 0) {
-        // Something went wrong with the rpcCall, return a sensible return
-        // value. In this case lets return, -EINVAL
-        DLOG( "rpcCall on getattr is failing");
-        fxn_ret = -EINVAL;
-    } else {
-        // Our RPC call succeeded. However, it's possible that the return code
-        // from the server is not 0, that is it may be -errno. Therefore, we
-        // should set our function return value to the retcode from the server.
-        fxn_ret = ret_code;
-    }
+    int ret_code = 0;
 
-    if (fxn_ret < 0) {
-        // Important: if the return code of watdfs_cli_getattr is negative (an
-        // error), then we need to make sure that the stat structure is filled
-        // with 0s. Otherwise, FUSE will be confused by the contradicting return
-        // values.
-        memset(statbuf, 0, sizeof(struct stat));
+    char *cache_path = get_cache_path(path);
+    if (is_file_open((openFiles *)userdata), path) {
+      int fresh_check_ret = freshness_check();
     }
-
-    // Clean up the memory we have allocated.
-    free(args);
 
     DLOG("DONE: getattr: return code is %d", fxn_ret);
 
     // Finally return the value we got from the server.
     return fxn_ret;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
                         struct fuse_file_info *fi) {
