@@ -20,6 +20,11 @@ INIT_LOG
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <dirent.h>
+#include <fuse.h>
+#include <libgen.h>
+#include <limits.h>
+
 
 // ------------ define util global var below ----------------------
 
@@ -36,6 +41,84 @@ struct fileMetadata {
 
 // track opened files by clients, just a type; key is not full path!
 typedef std::map<std::string, struct fileMetadata *> openFiles;
+
+
+// ------------ define locks below ----------------------
+
+static int lock(const char *path, int mode) {
+
+    int num_args = 3;
+    int arg_types[num_args + 1];
+    void **args = (void**)malloc( num_args*sizeof(void*));
+    int pathlen = strlen(path) + 1;
+
+    arg_types[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) |
+                    (ARG_CHAR << 16) | pathlen;
+    args[0] = (void *) path;
+
+    arg_types[1] = (1 << ARG_INPUT) |  (ARG_INT << 16) ;
+    args[1] = (void *) &mode;
+
+    arg_types[2] = (1 << ARG_OUTPUT) | (ARG_INT << 16) ;
+
+    int ret_code;
+    args[2] = (void *) &ret_code;
+
+    arg_types[3] = 0;
+
+    // MAKE THE RPC CALL
+    int rpc_ret = rpcCall((char *)"lock", arg_types, args);
+
+    // HANDLE THE RETURN
+    int fxn_ret = 0;
+
+    if (rpc_ret < 0) {
+      DOLG("lock itself rpc call failed")
+      fxn_ret = -EINVAL;
+      free(args);
+      return fxn_ret;
+    }
+
+    fxn_ret = ret_code;
+    free(args);
+    return fxn_ret;
+}
+
+static int unlock(const char *path, int mode){
+
+    int num_args = 3;
+    int arg_types[num_args + 1];
+    void **args = (void**)malloc( num_args*sizeof(void*));
+
+    int pathlen = strlen(path) + 1;
+
+    arg_types[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) | (ARG_CHAR << 16) | pathlen;
+    args[0] = (void*) path;
+
+    arg_types[1] = (1 << ARG_INPUT) |  (ARG_INT << 16) ; // mode
+    args[1] = (void*) &mode;
+
+    arg_types[2] = (1 << ARG_OUTPUT) | (ARG_INT << 16) ; // not array, last 2 bytes 0
+    int ret_code;
+    args[2] = (void*) & ret_code;
+
+    arg_types[3] = 0;
+
+    // MAKE THE RPC CALL
+    int rpc_ret = rpcCall((char *)"unlock", arg_types, args);
+
+    // HANDLE THE RETURN
+    int fxn_ret = 0;
+    if (rpc_ret < 0) {
+      fxn_ret = -EINVAL;
+      free(args);
+      return fxn_ret;
+    }
+
+    fxn_ret = ret_code;
+    free(args);
+    return fxn_ret;
+}
 
 
 // ------------ define util functions below ----------------------
