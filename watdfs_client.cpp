@@ -36,7 +36,15 @@ struct fileMetadata {
 typedef std::map<std::string, struct fileMetadata *> openFiles;
 
 // ------------------ COPY OLD RPC CALLS --------------------------------
+struct timespec get_curr_time(){
+    struct timespec *T_tmp_pointer = new struct timespec;
+    clock_gettime(CLOCK_REALTIME, T_tmp_pointer);
 
+    struct timespec T = *T_tmp_pointer;
+    delete T_tmp_pointer;
+
+    return T;
+}
 // GET FILE ATTRIBUTES
 int rpcCall_getattr(void *userdata, const char *path, struct stat *statbuf) {
     // SET UP THE RPC CALL
@@ -1500,15 +1508,7 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
 double timespec_diff2(struct timespec T1, struct timespec T2){
     return (double) (difftime(T1.tv_sec, T2.tv_sec));
 }
-struct timespec get_curr_time(){
-    struct timespec *T_tmp_pointer = new struct timespec;
-    clock_gettime(CLOCK_REALTIME, T_tmp_pointer);
 
-    struct timespec T = *T_tmp_pointer;
-    delete T_tmp_pointer;
-
-    return T;
-}
 // w =1, r = 0
 bool freshness_check(openFiles *open_files, const char *cache_path, const char *path, int rw_flag) {
 
@@ -1607,7 +1607,7 @@ bool check_if_file_exist_on_server(void *userdata, const char *path){
     return (remote_ret != -2);
 }
 void set_validate_time(void * userdata, const char *path){
-    (*((openFiles *) userdata))[path]->tc = time(0);
+    (*((openFiles *) userdata))[path]->tc = get_curr_time();
 }
 // GET FILE ATTRIBUTES
 int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
@@ -1712,7 +1712,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 
       // set to current time since it is just opened
       struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
-      target->tc = time(NULL); // curr time
+      target->tc = get_curr_time(); // curr time
 
       sys_ret = fstat(target->client_mode, statbuf);
       if (sys_ret < 0) {
@@ -1866,7 +1866,7 @@ int open_local_file(void *userdata, char *cache_path, int flags){
     }else{
         // (*((openFiles *)userdata))[s_cache_path]->flags = flags;
         // (*((openFiles *)userdata))[s_cache_path]->fh = ret;
-        (*((openFiles *)userdata))[s_cache_path]->tc = time(0);
+        (*((openFiles *)userdata))[s_cache_path]->tc = get_curr_time();
         DLOG("open file and update metadata on client success");
         return 0;
     }
@@ -1971,7 +1971,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     int ret_code = freshness_check((openFiles *)userdata, cache_path, path, 0);
     struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
-    target->tc = time(NULL); // curr time
+    target->tc = get_curr_time();// curr time
 
     if (ret_code < 0){
       fxn_ret = ret_code;
@@ -2009,7 +2009,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     int ret_code = freshness_check((openFiles *) userdata, cache_path, path, 1);
     struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
-    target->tc = time(NULL); // curr time
+    target->tc = get_curr_time(); // curr time
 
     if (ret_code < 0){
       fxn_ret = ret_code;
@@ -2118,7 +2118,7 @@ int watdfs_cli_fsync(void *userdata, const char *path,
   //update time
   struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
-  target->tc = time(NULL); // curr time
+  target->tc = get_curr_time();// curr time
 
   DLOG("DONE: sync: return code is %d", fxn_ret);
 
