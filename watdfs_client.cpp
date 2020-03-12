@@ -1533,8 +1533,8 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
     }
     struct timespec T_server = statbuf->st_mtim;
 
-    if (!( timespec_diff2(T, Tc ) < cacheInterval
-        ||timespec_diff2(T_client, T_server) == 0)){
+    if (!( timespec_diff(T, Tc ) < cacheInterval
+        ||timespec_diff(T_client, T_server) == 0)){
         //std::cerr << "file timeout and freshed" << std::endl;
         struct fuse_file_info * fi = new struct fuse_file_info;
         fi->fh = file_meta->server_mode;
