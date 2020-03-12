@@ -2048,7 +2048,7 @@ int watdfs_cli_utimens(void *userdata, const char *path,
       return ret_code;
     }
 
-    int sys_ret = utimensat(0, cache_path, ts, O_RDONLY);
+    ret_code= utimensat(0, cache_path, ts, O_RDONLY);
 
   }
 
@@ -2061,7 +2061,7 @@ int watdfs_cli_utimens(void *userdata, const char *path,
       return ret_code;
     }
 
-    int sys_ret = utimensat(0, cache_path, ts, O_WRONLY);
+    ret_code = utimensat(0, cache_path, ts, O_WRONLY);
 
   }
   // extra sys call to utimensat
