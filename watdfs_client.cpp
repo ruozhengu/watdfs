@@ -1516,8 +1516,8 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
 
   int sys_ret, fxn_ret, dfs_ret;
     struct fileMetadata * file_meta = (*open_files)[path];
-    time_t Tc = file_meta->tc;
-    time_t T = get_curr_time();
+    struct timespec Tc = file_meta->tc;
+    struct timespec T = get_curr_time();
 
     // get T_client and T_server
     struct stat* statbuf = new struct stat;
