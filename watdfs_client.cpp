@@ -1714,9 +1714,9 @@ int open_local_file(void *userdata, char *cache_path, int flags){
         DLOG("open local file fail");
         return -errno;
     }else{
-        (*((openFiles *)userdata))[s_cache_path].flags = flags;
-        (*((openFiles *)userdata))[s_cache_path].fh = ret;
-        (*((openFiles *)userdata))[s_cache_path].tc = time(0);
+        (*((openFiles *)userdata))[s_cache_path]->flags = flags;
+        (*((openFiles *)userdata))[s_cache_path]->fh = ret;
+        (*((openFiles *)userdata))[s_cache_path]->tc = time(0);
         DLOG("open file and update metadata on client success");
         return 0;
     }
