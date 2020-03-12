@@ -1703,7 +1703,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
 }
 
 int open_local_file(void *userdata, char *cache_path, int flags){
-    string s_cache_path(cache_path);
+    std::string s_cache_path(cache_path);
     int ret;
     if(is_file_open((openFiles *)userdata, cache_path)){
         DLOG("file is open on client, can't open again");
@@ -1714,7 +1714,6 @@ int open_local_file(void *userdata, char *cache_path, int flags){
         DLOG("open local file fail");
         return -errno;
     }else{
-        struct global_v *user = (global_v *)userdata;
         (*((openFiles *)userdata))[s_cache_path].flags = flags;
         (*((openFiles *)userdata))[s_cache_path].fh = ret;
         (*((openFiles *)userdata))[s_cache_path].tc = time(0);
@@ -1726,7 +1725,7 @@ int open_local_file(void *userdata, char *cache_path, int flags){
 int watdfs_cli_open(void *userdata, const char *path,
                     struct fuse_file_info *fi) {
     struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
-    char *cache_path = get_cache_path(userdata, path);
+    char *cache_path = get_cache_path(path);
     int ret, fxn_ret = 0;
 
     //check open
