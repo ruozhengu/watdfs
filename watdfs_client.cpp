@@ -1051,7 +1051,7 @@ static int unlock(const char *path, int mode){
 bool is_file_open(struct file_state *userdata, const char *cache_path){
 
     std::string(full_path);
-    return (userdata->openFile).find(std::string(full_path)) != (userdata->openFile).end()
+    return (userdata->openFiles).find(std::string(full_path)) != (userdata->openFile).end();
 }
 
 char *get_full_path(struct file_state *userdata, const char* rela_path) {
