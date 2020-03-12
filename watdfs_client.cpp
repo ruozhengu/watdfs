@@ -1536,10 +1536,8 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     DLOG("getattr triggered");
 
     char *full_path = get_full_path((struct file_state *)userdata, path);
-    DLOG("getattr triggered3");
     std::string p = std::string(full_path);
-    DLOG("getattr triggered2");
-    DLOG("all good");
+
     // validate if file open, and prepare for downloading the data to client
     if (!is_file_open((struct file_state *)userdata, full_path)) {
       DLOG("getattr triggered111");
@@ -1612,7 +1610,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     }
     free(full_path);
 
-    DLOG("getarrt finished");
+    DLOG("getattr finished");
     // FINAL RETURN THE HANDLER CODE
     return fxn_ret;
 }
