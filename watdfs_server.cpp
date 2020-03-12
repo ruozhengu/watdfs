@@ -49,6 +49,16 @@ std::map<std::string, struct file_metadata *> openedFilesStates;
 
 // Global state server_persist_dir.
 char *server_persist_dir = NULL;
+// lock.
+int rw_lock_init(rw_lock_t *lock);
+// Destroy the lock, this must be called when you are finished with the lock.
+int rw_lock_destroy(rw_lock_t *lock);
+
+// Acquire the lock in mode  (RW_READ_LOCK, RW_WRITE_LOCK).
+int rw_lock_lock(rw_lock_t *lock, rw_lock_mode_t mode);
+// Release the lock from mode  (RW_READ_LOCK, RW_WRITE_LOCK). To release the
+// lock you must have been an owner of the lock.
+int rw_lock_unlock(rw_lock_t *lock, rw_lock_mode_t mode);
 
 // We need to operate on the path relative to the the server_persist_dir.
 // This function returns a path that appends the given short path to the
