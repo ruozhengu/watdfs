@@ -1432,11 +1432,17 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
 //TODO: might need to free path as well
 void watdfs_cli_destroy(void *userdata) {
 
-    delete userdata;
+
     int destoryRet = rpcClientDestroy();
 
     if (!destoryRet) DLOG("Client Destory Success");
     else DLOG("Client Destory Fail");
+
+    for(auto it : (*(openFiles *)userdata)) {
+      delete it.second;
+    }
+
+    free(cachePath);
 
     userdata = NULL;
 }
@@ -1483,7 +1489,6 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
     } else {
       //if file is never opened before
       DLOG("first time opening the file, checking if it's on server ...");
-      struct stat sb; // on stack
 
       struct stat * tmp = new struct stat;
       // return error code if file exists on server ...
@@ -1542,12 +1547,12 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 
     char *cache_path = get_cache_path(path);
 
-    if (is_file_open((openFiles *)userdata), path) {
+    if (is_file_open((openFiles *)userdata, path)) {
 
       DLOG("file opened before, checking freshness ...");
 
       // check client server consistency
-      ret_code = freshness_check((openFiles *) userdata, path, 0);
+      ret_code = freshness_check((openFiles *) userdata, cache_path, path, 0);
 
       // handle return code
       if (ret_code < 0) {
@@ -1572,10 +1577,10 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
     } else {
       //if file is never opened before
       DLOG("first time opening the file, checking if it's on server ...");
-      struct stat sb; // on stack
+      struct stat * tmp = new struct stat;
 
       // return error code if file exists on server ...
-      if (-2 == rpcCall_getattr(userdata, path, &sb) {
+      if (rpcCall_getattr(userdata, path, tmp) == -2) {
 
         // exsistence leads to an error ...
         DLOG("FAILED: file exists on server");
@@ -1690,7 +1695,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
 
     // Clean up the memory we have allocated.
     free(args);
-    free(full_path);
+    free(cache_path);
 
     DLOG("DONE: mknod: return code is %d", fxn_ret);
 
@@ -1705,7 +1710,7 @@ int watdfs_cli_open(void *userdata, const char *path,
     DLOG("Received open rpcCall from local client...");
 
 
-    if (is_file_open((openFiles *)userdata), path) return EMFILE;
+    if (is_file_open((openFiles *)userdata, path)) return EMFILE;
 
     // add to openFiles
     (*((openFiles *)userdata))[std::string(path)] = new struct fileMetadata;
@@ -1780,7 +1785,6 @@ int watdfs_cli_open(void *userdata, const char *path,
     if (readonly == (fi->flags & O_ACCMODE)) fi->flags = O_RDWR; // client
     else fi->flags = O_RDWR;
 
-    int ret_code;
     ret_code = download_to_client(userdata, path, fi);
 
     if (ret_code < 0) {
@@ -1828,7 +1832,7 @@ int watdfs_cli_release(void *userdata, const char *path,
 
    // now remove the files from openFiles and close it locally
 
-    struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
+    struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
     sys_ret = close(target->client_mode);
 
@@ -1848,7 +1852,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     int fxn_ret = 0;
 
     int ret_code = freshness_check((openFiles *)userdata, path, 0);
-    struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
+    struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
     target->tc = time(NULL); // curr time
 
@@ -1884,7 +1888,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
 
     int ret_code = freshness_check((openFiles *) userdata, path, 1);
-    struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
+    struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
     target->tc = time(NULL); // curr time
 
