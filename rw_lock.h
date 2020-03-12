@@ -4,14 +4,12 @@
 // You should not need to change this file.
 //
 
-#ifndef RW_LOCK_H
-#define RW_LOCK_H
+
 
 #include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
-#endif
 
 // DEFINITIONS
 

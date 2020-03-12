@@ -24,7 +24,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-//#include "rw_lock.h"
+#include "rw_lock.h"
 #include <unistd.h>
 #include <cstdint>
 
