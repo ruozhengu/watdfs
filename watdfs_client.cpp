@@ -1117,7 +1117,7 @@ int write_from_buffer_to_local_file(void *userdata, const char *path, const char
             size_current_write = size_dynamic;
         }
 
-        sys_ret = pwrite((*((openFile*)userdata))[path]->client_mode, buf, size_current_write, offset);
+        sys_ret = pwrite((*((openFiles*)userdata))[path]->client_mode, buf, size_current_write, offset);
 
         if (sys_ret< 0){
             fxn_ret = -errno;
@@ -1267,7 +1267,7 @@ static int download_to_client(void *userdata, const char *path, struct fuse_file
     // }
 
     int dfs_result, sys_ret, fxn_ret;
-    char * full_path = get_full_path(path);
+    char * full_path = get_cache_path(path);
 
     // Get file attributes from the server
     struct stat* statbuf = new struct stat;
@@ -1377,7 +1377,7 @@ static int download_to_client(void *userdata, const char *path, struct fuse_file
     // Finally return the value we got from the server.
     return fxn_ret;
 }
-}
+
 
 static int push_to_server(void *userdata, const char *path, struct fuse_file_info *fi){
 
