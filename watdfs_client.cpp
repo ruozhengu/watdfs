@@ -1146,7 +1146,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
 
       if (rpc_ret < 0){
         DLOG("download error");
-        free(full_path);
         delete statbuf;
         delete fi;
         unlock(path, RW_READ_LOCK);
@@ -1165,7 +1164,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
           DLOG("download error");
           delete fi;
           delete statbuf;
-          free(full_path);
           unlock(path, RW_READ_LOCK);
           return rpc_ret;
       }
@@ -1180,7 +1178,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
         unlock(path, RW_READ_LOCK);
         free(buf);
         delete statbuf;
-        free(full_path);
         return sys_ret;
       }
 
@@ -1209,7 +1206,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
         unlock(path, RW_READ_LOCK);
         free(buf);
         delete statbuf;
-        free(full_path);
         return sys_ret;
       }
 
@@ -1220,7 +1216,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
         unlock(path, RW_READ_LOCK);
         free(buf);
         delete statbuf;
-        free(full_path);
         return -errno;
       }
 
@@ -1229,7 +1224,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       if (rpc_ret < 0){
         DLOG("download error");
         free(buf);
-        free(full_path);
         // delete ts;
         delete statbuf;
         return sys_ret;
@@ -1240,7 +1234,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
 
       free(buf);
       delete fi;
-      free(full_path);
 
       delete statbuf;
       return fxn_ret;
