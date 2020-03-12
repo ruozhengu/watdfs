@@ -1455,8 +1455,8 @@ int freshness_check(struct file_state *userdata, const char *full_path, const ch
     }
     fxn_ret = sys_ret;
 
-    struct timespec T_client = statClient->st_mtime;
-    struct timespec T_server = statServer->st_mtime;
+    time_t T_client = statClient->st_mtime;
+    time_t T_server = statServer->st_mtime;
 
     bool server_client_diff = (difftime(T_client.tv_sec, T_server.tv_sec)) == 0;
     bool within_interval = -1 * (file_meta.tc - time(0)) < T;
