@@ -1730,7 +1730,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
 int file_open_load(void *userdata, const char * full_path, const char *path, struct fuse_file_info *fi) {
   int ret_code = rpcCall_open(userdata, path, fi);
   int fxn_ret = (ret_code < 0) ? ret_code : 0;
-  int ret_code2 = download_to_client(userdata, full_path, path);
+  int ret_code2 = download_to_client((struct file_state*)userdata, full_path, path);
   fxn_ret = (ret_code2 < 0) ? ret_code2 : 0;
   return fxn_ret;
 }
@@ -1865,7 +1865,7 @@ void check_fresh_then_load(void *userdata, const char * full_path, const char *p
   int fresh_or_not = freshness_check((struct file_state *)userdata, full_path, path);
   int fxn_ret = 0;
   if (fresh_or_not == 0) {
-    fxn_ret = push_to_server(userdata, full_path, path);
+    fxn_ret = push_to_server((struct file_state*)userdata, full_path, path);
     // set time to current
     (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
     if (fxn_ret < 0) *code = fxn_ret;
@@ -1956,7 +1956,8 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
       DLOG("error in truncate");
       return fxn_ret;
     }
-    fxn_ret = download_open(userdata, full_path, path, newsize);
+    int clientM = (((struct file_state *)userdata)->openFiles)[std::string(full_path)].client_mode;
+    fxn_ret = download_open(userdata, clientM, full_path, path, newsize);
   } else {
     int flag = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode;
     fxn_ret = truncate_update(userdata, flag, full_path, path, newsize);
@@ -2001,7 +2002,7 @@ int utimens_update(void *userdata, int flag, const char* full_path, const char* 
       // set time to current
       ret_code = push_to_server((struct file_state*)userdata, full_path, path);
       if (ret_code < 0) return ret_code;
-      (((struct file_state*)userdata)->openfiles)[std::string(full_path)].tc = time(0);
+      (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
 
     } else {
       return 0;
