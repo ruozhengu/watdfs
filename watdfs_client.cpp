@@ -1461,7 +1461,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
 
     std::cerr <<"cli getattr called"<< std::endl;
     int fxn_ret = 0;
-    if (!is_file_opened((openFiles *)userdata, path)){// file not opened at the client side, should be closed
+    if (!is_file_openß((openFiles *)userdata, path)){// file not opened at the client side, should be closed
         std::cerr <<"file has not been opened"<< std::endl;
 
         /******* check if a file exist on the server *******/
@@ -1503,7 +1503,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
         char *full_path = get_cache_path(path);
 
         int utils_ret = 0;
-        utils_ret = freshness_check(userdata, cache_path, path, 0);
+        utils_ret = freshness_check(userdata, full_path, path, 0);
 
         set_validate_time(userdata, path);
         if (utils_ret < 0){
