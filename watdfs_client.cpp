@@ -1534,7 +1534,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     DLOG("getattr triggered3");
     std::string p = std::string(full_path);
     DLOG("getattr triggered2");
-    (((struct file_state *)userdata)->openFiles).count(p) <= 0;
+    (((struct file_state *)userdata)->openFiles).find(p) != (((struct file_state *)userdata)->openFiles).end();
     DLOG("all good");
     // validate if file open, and prepare for downloading the data to client
     if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
