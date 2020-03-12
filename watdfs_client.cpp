@@ -37,7 +37,7 @@ struct file_state {
   time_t cacheInterval;
   char *cachePath;
   std::map<std::string, struct fileMetadata > openFiles;
-}
+};
 
 
 // ------------------ COPY OLD RPC CALLS --------------------------------
@@ -1057,7 +1057,7 @@ char *get_full_file_path(struct file_state *userdata, const char* rela_path) {
 
   char *full_path = (char *) malloc(full_path_len);
 
-  strcpy(full_path, cachePath);
+  strcpy(full_path, userdata->cachePath);
   strcat(full_path, rela_path);
 
   return full_path;
@@ -1068,15 +1068,15 @@ bool is_file_open(struct file_state *open_files, const char *path) {
   return (open_files->openFiles).count(p) > 0 ? true : false;
 }
 
-struct fileMetadata * get_file_metadata(openFiles *open_files, const char *path) {
-  return (open_files->openFiles)[std::string(path)];
+struct fileMetadata * get_file_metadata(struct file_state *userdata, const char *path) {
+  return (userdata->openFiles)[std::string(path)];
 }
 
 // to be called in download function
 // to write from server to local
 static int _write(int ret, const char *path, const char *buf, size_t size,
                     off_t offset, struct fuse_file_info *fi) {
-  fi = (void *) fi;
+  fi = (fuse_file_info *) fi;
   int sys_ret = pwrite(ret, buf, size, offset);
 
   // handle error
@@ -1087,25 +1087,10 @@ static int _write(int ret, const char *path, const char *buf, size_t size,
   return sys_ret;
 }
 
-// // to be called in upload function
-// // to read from local to server
-// static int _read(void *userdata, const char *path, const char *buf, size_t size,
-//                     off_t offset, struct fuse_file_info *fi) {
-//
-//     int sys_ret = pread(fi->fh, buf, size, offset);
-//
-//     // handle error
-//     if (sys_ret < 0) {
-//       //DLOG(.*)
-//       sys_ret = -errno;
-//     }
-//     return sys_ret;
-// }
-
 static int download_to_client(struct file_state *userdata, const char *full_path,
                   const char *path){
 
-    DLOG("download data from server")
+    DLOG("download data from server");
     int flag1 = O_RDWR;
     int flag2 = O_CREAT;
     int flag3 = S_IRWXU;
@@ -1177,7 +1162,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
 
       if (rpc_ret < 0){
           free(buf);
-          DLOG("download error")
+          DLOG("download error");
           delete fi;
           delete statbuf;
           free(full_path);
@@ -1191,7 +1176,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       rpc_ret = _write(sys_ret, path, buf, size, 0, fi); //TODO: not sure
 
       if (rpc_ret < 0){
-        DLOG("download error")
+        DLOG("download error");
         unlock(path, RW_READ_LOCK);
         free(buf);
         delete statbuf;
@@ -1220,7 +1205,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       DLOG("download: metadata updated");
       rpc_ret = rpcCall_release((void *)userdata, path, fi);
       if(rpc_ret < 0){
-        DLOG("download error")
+        DLOG("download error");
         unlock(path, RW_READ_LOCK);
         free(buf);
         delete statbuf;
@@ -1231,7 +1216,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       // close file locally
       ret = close(sys_ret);
       if(ret < 0){
-        DLOG("download error")
+        DLOG("download error");
         unlock(path, RW_READ_LOCK);
         free(buf);
         delete statbuf;
@@ -1242,7 +1227,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       rpc_ret = unlock(path, RW_READ_LOCK);
 
       if (rpc_ret < 0){
-        DLOG("download error")
+        DLOG("download error");
         free(buf);
         free(full_path);
         // delete ts;
