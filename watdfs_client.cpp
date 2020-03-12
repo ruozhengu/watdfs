@@ -3,26 +3,20 @@
 // You SHOULD change this file
 //
 #include "watdfs_client.h"
-#include "rpc.h"
+#include "rpcCall.h"
 #include "debug.h"
 INIT_LOG
-#include <math.h>
-#include "rw_lock.h"
-#include <iostream>
-#include <map>
+
+#include "rpc.h"
 #include <string>
-#include <time.h>
-#include <sys/types.h>
+#include <cstdint>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <libgen.h>
-#include <limits.h>
-#include <fcntl.h>
-#include <errno.h>
+#include <map>
+#include <iostream>
+#include <cstring>
 
 
-
+#include "rpc.h"
 int readonly = O_RDONLY;
 
 
