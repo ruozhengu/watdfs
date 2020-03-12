@@ -1446,93 +1446,89 @@ void watdfs_cli_destroy(void *userdata) {
     // delete userdata;
     userdata = NULL;
 }
-
+bool check_if_file_exist_on_server(void *userdata, const char *path){
+    int remote_ret = 0;
+    struct stat * tmp_statbuf = new struct stat;
+    remote_ret = rpcCall_getattr(userdata, path, tmp_statbuf);
+    return (remote_ret != -2);
+}
+void set_validate_time(void * userdata, const char *path){
+    (*((openFiles *) userdata))[path]->tc = time(0);
+}
 // GET FILE ATTRIBUTES
-int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
-    // SET UP THE RPC CALL
-    DLOG("NEW: Received getattr call from local client...");
+int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
+    int flag = O_RDONLY;
 
+    std::cerr <<"cli getattr called"<< std::endl;
     int fxn_ret = 0;
-    int ret_code = 0;
-    int sys_ret = 0;
+    if (!is_file_opened((openFiles *)userdata, path)){// file not opened at the client side, should be closed
+        std::cerr <<"file has not been opened"<< std::endl;
 
+        /******* check if a file exist on the server *******/
+        if (!check_if_file_exist_on_server(userdata, path)){// true if file does not exist
+            std::cerr << "in getattr file does not exist on server" << std::endl;
+            return -2;
+        }
+        /******* check if a file exist on the server *******/
 
-    char *cache_path = get_cache_path(path);
+        struct fuse_file_info* file_info = new struct fuse_file_info;
+        file_info->flags = flag;
 
-    if (is_file_open((openFiles *)userdata, path)) {
+        int dfs_ret = watdfs_cli_open(userdata, path, file_info);
+        if (dfs_ret < 0){
+            delete file_info;
+            return dfs_ret;
+        }
 
-      DLOG("file opened before, checking freshness ...");
+        char *full_path = get_cache_path(path);
+        // MAKE THE system call
+        int sys_ret = stat(full_path, statbuf);
 
-      // check client server consistency
-      ret_code = freshness_check((openFiles *) userdata,cache_path, path, 0);
+        if (sys_ret < 0) {
+            fxn_ret = -errno;
+            memset(statbuf, 0, sizeof(struct stat));
+        }else{
+            fxn_ret = sys_ret;
+        }
 
-      // handle return code
-      if (ret_code < 0) {
-        free(cache_path);
-        return ret_code;
-      }
+        // Clean up the full path, it was allocated on the heap.
+        free(full_path);
+        //std::cerr <<"system return "<< sys_ret << std::endl;
+        sys_ret = watdfs_cli_release(userdata, path, file_info);
+        fxn_ret = sys_ret;
+        std::cerr <<"client getattr finished "<< fxn_ret << std::endl;
 
-      // set to current time since it is just opened
-      struct fileMetadata * target = (*((openFiles *) userdata))[std::string(path)];
-      target->tc = time(NULL); // curr time
-
-      sys_ret = stat(cache_path, statbuf);
-      if (sys_ret < 0) {
-          memset(statbuf, 0, sizeof(struct stat));
-          DLOG("getattr system call failed(1) ...");
-          free(cache_path);
-          fxn_ret = -errno;
-          return fxn_ret;
-      }
-      fxn_ret = ret_code;
-
-    } else {
-      //if file is never opened before
-      DLOG("first time opening the file, checking if it's on server ...");
-
-      struct stat * tmp = new struct stat;
-      // return error code if file exists on server ...
-      if (rpcCall_getattr(userdata, path, tmp) == -2) {
-
-        // exsistence leads to an error ...
-        DLOG("FAILED: file exists on server");
-        fxn_ret = -2;
-        free(cache_path);
         return fxn_ret;
-      }
+    }else{// file already opened
+        char *full_path = get_cache_path(path);
 
-      struct fuse_file_info * fi = new struct fuse_file_info;
-      fi->flags = O_RDONLY; // update flags
+        int utils_ret = 0;
+        utils_ret = freshness_check(userdata, cache_path, path, 0);
 
-      ret_code = watdfs_cli_open(userdata, path, fi); // sys call
-      if (ret_code < 0){
-          delete fi;
-          free(cache_path);
-          return ret_code;
-      }
+        set_validate_time(userdata, path);
+        if (utils_ret < 0){
+            return utils_ret;
+        }
 
-      sys_ret = stat(cache_path, statbuf); // sys call
+        // MAKE THE system call
+        int sys_ret = stat(full_path, statbuf);
 
-      if (sys_ret < 0) {
-        memset(statbuf, 0, sizeof(struct stat));
-        fxn_ret = -errno;
-        delete fi;
-        free(cache_path);
+        if (sys_ret < 0) {
+            fxn_ret = -errno;
+            memset(statbuf, 0, sizeof(struct stat));
+        }else{
+            fxn_ret = sys_ret;
+        }
+
+        std::cerr <<"file size "<< statbuf->st_size << std::endl;
+
+        // Clean up the full path, it was allocated on the heap.
+        free(full_path);
+        //std::cerr <<"system return "<< sys_ret << std::endl;
+        std::cerr <<"client getattr finished"<< std::endl;
+
         return fxn_ret;
-      }
-
-      // release the file
-      fxn_ret = watdfs_cli_release(userdata, path, fi);
-
-      //TODO: delete fi?
     }
-
-    free(cache_path); // eventually freed
-
-    DLOG("SUCCESS: getattr: return code is %d", fxn_ret);
-
-    // Finally return the value we got from the server.
-    return fxn_ret;
 }
 
 int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
