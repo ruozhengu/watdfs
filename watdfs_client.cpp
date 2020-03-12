@@ -1536,8 +1536,11 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     DLOG("getattr triggered2");
     // validate if file open, and prepare for downloading the data to client
     if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
+      DLOG("getattr triggered111");
       struct stat *statbuf_tmp = new struct stat;
+      DLOG("getattr triggered1111");
       int ret_code = rpcCall_getattr(userdata, path, statbuf_tmp);
+      DLOG("getattr triggered111111");
       if (ret_code < 0) {
         DLOG("error in getattr (1)");
         free(statbuf_tmp);
