@@ -495,8 +495,8 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
 
     int ret_code = freshness_check((openFiles *) userdata, path, 1);
-
     struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
+
     target->tc = time(NULL); // curr time
 
     if (ret_code < 0){
@@ -504,146 +504,111 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
       DLOG("freshness check in write failed...");
       return fxn_ret;
     }
-
-    // fxn_ret = sys_ret;
     return sys_ret;
 }
 
 int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
-  // Called to release a file.
-  // SET UP THE RPC CALL
+
   DLOG("Received truncate rpcCall from local client...");
 
-  // getattr has 4 arguments.
-  int ARG_COUNT = 3;
-
-  // Allocate space for the output arguments.
-  void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-
-  // Allocate the space for arg types, and one extra space for the null
-  // array element.
-  int arg_types[ARG_COUNT + 1];
-
-  // The path has string length (strlen) + 1 (for the null character).
-  int pathlen = strlen(path) + 1;
-
-  // Fill in the arguments
-  // The first argument is the path, it is an input only argument, and a char
-  // array. The length of the array is the length of the path.
-  arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
-  // For arrays the argument is the array pointer, not a pointer to a pointer.
-  args[0] = (void *)path;
-
-  // The second argument is the newsize var. This argument is an input
-  // only argument, and we treat it as integer
-  arg_types[1] = (1u << ARG_INPUT) | (ARG_LONG << 16u);
-
-  args[1] = (void *)&newsize;
-
-  // The second argument is return code, an output only argument, which is
-  // an integer type.
-  arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
-  int ret_code = 0;
-  args[2] = (void *)&ret_code;
-
-  // Finally, the last position of the arg types is 0. There is no
-  // corresponding arg.
-  arg_types[3] = 0;
-
-  // MAKE THE RPC CALL
-  int rpc_ret = rpcCall((char *)"truncate", arg_types, args);
-
-  // HANDLE THE RETURN
   int fxn_ret = 0;
-  if (rpc_ret < 0) {
-      // Something went wrong with the rpcCall, return a sensible return
-      // value. In this case lets return, -EINVAL
-      DLOG( "Truncate rpcCall: fail");
-      fxn_ret = -EINVAL;
-  } else {
-      // Our RPC call succeeded. However, it's possible that the return code
-      // from the server is not 0, that is it may be -errno. Therefore, we
-      // should set our function return value to the retcode from the server.
-      fxn_ret = ret_code;
+
+  char *cache_path = get_cache_path(path);
+
+  // call system call here
+  sys_ret = truncate(cache_path, newsize);
+
+  // check freshness
+  fxn_ret = freshness_check((openFiles *) userdata, path, 1);
+
+  if (ret_code < 0){
+    DLOG("freshness check in truncate failed...");
+    free(full_path);
+    return fxn_ret;
   }
+  free(full_path);
 
-  if (fxn_ret < 0) DLOG("Truncate rpcCall: return code is negative");
-
-
-  // Clean up the memory we have allocated.
-  free(args);
-
-  DLOG("DONE: truncate: return code is %d", fxn_ret);
-
-  // Finally return the value we got from the server.
   return fxn_ret;
 }
 
 int watdfs_cli_fsync(void *userdata, const char *path,
                      struct fuse_file_info *fi) {
-  // Called to release a file.
-  // SET UP THE RPC CALL
+
   DLOG("Received fsync rpcCall from local client...");
 
-  // getattr has 4 arguments.
-  int ARG_COUNT = 3;
+  // // getattr has 4 arguments.
+  // int ARG_COUNT = 3;
+  //
+  // // Allocate space for the output arguments.
+  // void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
+  //
+  // // Allocate the space for arg types, and one extra space for the null
+  // // array element.
+  // int arg_types[ARG_COUNT + 1];
+  //
+  // // The path has string length (strlen) + 1 (for the null character).
+  // int pathlen = strlen(path) + 1;
+  //
+  // // Fill in the arguments
+  // // The first argument is the path, it is an input only argument, and a char
+  // // array. The length of the array is the length of the path.
+  // arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
+  // args[0] = (void *)path;
+  //
+  // // The second argument is the fi. This argument is an input
+  // // only argument, and we treat it as char array
+  // arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
+  //  (uint)sizeof(struct fuse_file_info);
+  // args[1] = (void *)fi;
+  //
+  // // The second argument is return code, an output only argument, which is
+  // // an integer type.
+  // arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
+  // int ret_code = 0;
+  // args[2] = (void *)&ret_code;
+  //
+  // // Finally, the last position of the arg types is 0. There is no
+  // // corresponding arg.
+  // arg_types[3] = 0;
+  //
+  // // MAKE THE RPC CALL
+  // int rpc_ret = rpcCall((char *)"fsync", arg_types, args);
+  //
+  // // HANDLE THE RETURN
+  // int fxn_ret = 0;
+  // if (rpc_ret < 0) {
+  //   // Something went wrong with the rpcCall, return a sensible return
+  //   // value. In this case lets return, -EINVAL
+  //   DLOG( "Fsync rpcCall: fail");
+  //   fxn_ret = -EINVAL;
+  // } else {
+  //   // Our RPC call succeeded. However, it's possible that the return code
+  //   // from the server is not 0, that is it may be -errno. Therefore, we
+  //   // should set our function return value to the retcode from the server.
+  //   fxn_ret = ret_code;
+  // }
+  //
+  // if (fxn_ret < 0) DLOG("Fsync rpcCall: return code is negative");
+  //
+  //
+  // // Clean up the memory we have allocated.
+  // free(args);
 
-  // Allocate space for the output arguments.
-  void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
-
-  // Allocate the space for arg types, and one extra space for the null
-  // array element.
-  int arg_types[ARG_COUNT + 1];
-
-  // The path has string length (strlen) + 1 (for the null character).
-  int pathlen = strlen(path) + 1;
-
-  // Fill in the arguments
-  // The first argument is the path, it is an input only argument, and a char
-  // array. The length of the array is the length of the path.
-  arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
-  args[0] = (void *)path;
-
-  // The second argument is the fi. This argument is an input
-  // only argument, and we treat it as char array
-  arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-   (uint)sizeof(struct fuse_file_info);
-  args[1] = (void *)fi;
-
-  // The second argument is return code, an output only argument, which is
-  // an integer type.
-  arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
   int ret_code = 0;
-  args[2] = (void *)&ret_code;
-
-  // Finally, the last position of the arg types is 0. There is no
-  // corresponding arg.
-  arg_types[3] = 0;
-
-  // MAKE THE RPC CALL
-  int rpc_ret = rpcCall((char *)"fsync", arg_types, args);
-
-  // HANDLE THE RETURN
   int fxn_ret = 0;
-  if (rpc_ret < 0) {
-    // Something went wrong with the rpcCall, return a sensible return
-    // value. In this case lets return, -EINVAL
-    DLOG( "Fsync rpcCall: fail");
-    fxn_ret = -EINVAL;
-  } else {
-    // Our RPC call succeeded. However, it's possible that the return code
-    // from the server is not 0, that is it may be -errno. Therefore, we
-    // should set our function return value to the retcode from the server.
+  ret_code = push_to_server(userdata, path, fi);
+
+  if (ret_code < 0) {
+    DLOG("fsyn failed to upload data");
     fxn_ret = ret_code;
   }
 
-  if (fxn_ret < 0) DLOG("Fsync rpcCall: return code is negative");
+  //update time
+  struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
 
+  target->tc = time(NULL); // curr time
 
-  // Clean up the memory we have allocated.
-  free(args);
-
-  DLOG("DONE: truncate: return code is %d", fxn_ret);
+  DLOG("DONE: sync: return code is %d", fxn_ret);
 
   // Finally return the value we got from the server.
   return fxn_ret;
@@ -651,72 +616,70 @@ int watdfs_cli_fsync(void *userdata, const char *path,
 
 // CHANGE METADATA
 int watdfs_cli_utimens(void *userdata, const char *path,
-                       const struct timespec ts[2]) {
+     const struct timespec ts[2]) {
 
-    // Called to release a file.
-    // SET UP THE RPC CALL
-    DLOG("Received utimens rpcCall from local client...");
+  // Called to release a file.
+  // SET UP THE RPC CALL
+  DLOG("Received utimens rpcCall from local client...");
 
-    // getattr has 4 arguments.
-    int ARG_COUNT = 3;
+  char *cache_path = get_cache_path(path);
+  int ret_code = 0;
+  // init new stat to update meta
+  struct stat *statbuf = new struct stat;
+  int fxn_ret = stat(full_path, statbuf);
 
-    // Allocate space for the output arguments.
-    void **args = (void **)malloc(ARG_COUNT * sizeof(void *));
+  if (sys_ret < 0) {
+    DLOG("error in utimens for stat sys call");
+    fxn_ret = -errno;
+    free(cache_path);
+    memset(statbuf, 0, sizeof(struct stat));
+    return fxn_ret;
+  }
 
-    // Allocate the space for arg types, and one extra space for the null
-    // array element.
-    int arg_types[ARG_COUNT + 1];
+  // check atime and mtime consistency, if not need to check freshness
+  bool is_atime_diff = ((statbuf->st_atim).tv_nsec != ts[0].tv_nsec) ||
+                        ((statbuf->st_atim).tv_sec != ts[0].tv_sec);
 
-    // The path has string length (strlen) + 1 (for the null character).
-    int pathlen = strlen(path) + 1;
+  bool is_mtime_diff = ((statbuf->st_mtim).tv_nsec != ts[1].tv_nsec) ||
+                        ((statbuf->st_mtim).tv_sec != ts[1].tv_sec);
 
-    // Fill in the arguments
-    // The first argument is the path, it is an input only argument, and a char
-    // array. The length of the array is the length of the path.
-    arg_types[0] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) | (uint)pathlen;
-    args[0] = (void *)path;
 
-    // The second argument is the ts. This argument is an input
-    // only argument, and we treat it as char array
-    arg_types[1] = (1u << ARG_INPUT) | (1u << ARG_ARRAY) | (ARG_CHAR << 16u) |
-      (uint)sizeof(struct timespec) * 2;
-    args[1] = (void *)ts;
+  if (is_atime_diff){
+    // need to check read freshnnes
+    ret_code = freshness_check(userdata, path, 0);
 
-    // The second argument is return code, an output only argument, which is
-    // an integer type.
-    arg_types[2] = (1u << ARG_OUTPUT) | (ARG_INT << 16u);
-    int ret_code = 0;
-    args[2] = (void *)&ret_code;
-
-    // Finally, the last position of the arg types is 0. There is no
-    // corresponding arg.
-    arg_types[3] = 0;
-
-    // MAKE THE RPC CALL
-    int rpc_ret = rpcCall((char *)"utimens", arg_types, args);
-
-    // HANDLE THE RETURN
-    int fxn_ret = 0;
-    if (rpc_ret < 0) {
-       // Something went wrong with the rpcCall, return a sensible return
-       // value. In this case lets return, -EINVAL
-       DLOG( "Utimens rpcCall: fail");
-       fxn_ret = -EINVAL;
-    } else {
-       // Our RPC call succeeded. However, it's possible that the return code
-       // from the server is not 0, that is it may be -errno. Therefore, we
-       // should set our function return value to the retcode from the server.
-       fxn_ret = ret_code;
+    if (utils_ret < 0){
+      DLOG("utimens freshness check failed");
+      return utils_ret;
     }
 
-    if (fxn_ret < 0) DLOG("Utimens rpcCall: return code is negative");
+    sys_ret = utimensat(0, cache_path, ts, O_RDONLY);
 
+  }
 
-    // Clean up the memory we have allocated.
-    free(args);
+  if (is_mtime_diff){
+    // need to check write freshness
+    ret_code = freshness_check(userdata, path, 1);
 
-    DLOG("DONE: truncate: return code is %d", fxn_ret);
+    if (utils_ret < 0){
+      DLOG("utimens freshness check failed");
+      return utils_ret;
+    }
 
-    // Finally return the value we got from the server.
-    return fxn_ret;
+    sys_ret = utimensat(0, cache_path, ts, O_WRONLY);
+
+  }
+  // extra sys call to utimensat
+  if (rw_flag == 1) {
+    ret_code = rpcCall_utimens(userdata, path, ts);
+    if (ret_code < 0){
+      DLOG("utimens rpccall check failed");
+      return ret_code;
+    }
+  }
+
+  DLOG("DONE: truncate: return code is %d", fxn_ret);
+
+  // Finally return the value we got from the server.
+  return fxn_ret;
 }
