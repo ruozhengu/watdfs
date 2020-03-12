@@ -2054,7 +2054,7 @@ int watdfs_cli_utimens(void *userdata, const char *path,
 
   if (is_mtime_diff){
     // need to check write freshness
-    ret_code = (userdata, cache_path, path, 1);
+    ret_code = freshness_check((openFiles *)userdata, cache_path, path, 1);
 
     if (ret_code < 0){
       DLOG("utimens freshness check failed");
