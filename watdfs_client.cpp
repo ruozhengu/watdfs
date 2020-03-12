@@ -4,7 +4,6 @@
 //
 
 #include "watdfs_client.h"
-#include "utils.h"
 #include "watdfs_client_direct_access.cpp"
 
 #include "debug.h"

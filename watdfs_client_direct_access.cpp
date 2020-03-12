@@ -17,7 +17,7 @@ INIT_LOG
 // GET FILE ATTRIBUTES
 int rpcCall_getattr(void *userdata, const char *path, struct stat *statbuf) {
     // SET UP THE RPC CALL
-    DLOG("Received getattr call from local client...");
+
 
     // getattr has 3 arguments.
     int ARG_COUNT = 3;
@@ -63,14 +63,12 @@ int rpcCall_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
     // MAKE THE RPC CALL
     int rpc_ret = rpcCall((char *)"getattr", arg_types, args);
-    DLOG("DONE: getattr: code is %d", rpc_ret);
     // HANDLE THE RETURN
     // The integer value watdfs_cli_getattr will return.
     int fxn_ret = 0;
     if (rpc_ret < 0) {
         // Something went wrong with the rpcCall, return a sensible return
         // value. In this case lets return, -EINVAL
-        DLOG( "rpcCall on getattr is failing");
         fxn_ret = -EINVAL;
     } else {
         // Our RPC call succeeded. However, it's possible that the return code
@@ -90,7 +88,7 @@ int rpcCall_getattr(void *userdata, const char *path, struct stat *statbuf) {
     // Clean up the memory we have allocated.
     free(args);
 
-    DLOG("DONE: getattr: return code is %d", fxn_ret);
+
 
     // Finally return the value we got from the server.
     return fxn_ret;
@@ -99,7 +97,7 @@ int rpcCall_getattr(void *userdata, const char *path, struct stat *statbuf) {
 int rpcCall_fgetattr(void *userdata, const char *path, struct stat *statbuf,
                         struct fuse_file_info *fi) {
     // SET UP THE RPC CALL
-    DLOG("Received fgetattr call from local client...");
+
 
     // getattr has 3 arguments.
     int ARG_COUNT = 4;
@@ -157,7 +155,7 @@ int rpcCall_fgetattr(void *userdata, const char *path, struct stat *statbuf,
     if (rpc_ret < 0) {
         // Something went wrong with the rpcCall, return a sensible return
         // value. In this case lets return, -EINVAL
-        DLOG( "rpcCall on fgetattr is failing");
+
         fxn_ret = -EINVAL;
     } else {
         // Our RPC call succeeded. However, it's possible that the return code
@@ -172,13 +170,13 @@ int rpcCall_fgetattr(void *userdata, const char *path, struct stat *statbuf,
         // with 0s. Otherwise, FUSE will be confused by the contradicting return
         // values.
         // memset(statbuf, 0, sizeof(struct stat));
-        DLOG("ggetattr get negative return code, read might fail ...");
+
     }
 
     // Clean up the memory we have allocated.
     free(args);
 
-    DLOG("DONE: fgetattr: return code is %d", fxn_ret);
+     
 
     // Finally return the value we got from the server.
     return fxn_ret;
@@ -188,7 +186,7 @@ int rpcCall_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 int rpcCall_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     // Called to create a file.
     // SET UP THE RPC CALL
-    DLOG("Received mknod rpcCall from local client...");
+
 
     // getattr has 4 arguments.
     int ARG_COUNT = 4;
@@ -239,7 +237,7 @@ int rpcCall_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     if (rpc_ret < 0) {
         // Something went wrong with the rpcCall, return a sensible return
         // value. In this case lets return, -EINVAL
-        DLOG( "Mknod rpcCall: fail");
+
         fxn_ret = -EINVAL;
     } else {
         // Our RPC call succeeded. However, it's possible that the return code
@@ -248,14 +246,14 @@ int rpcCall_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
         fxn_ret = ret_code;
     }
 
-    if (fxn_ret < 0) DLOG("Mknod rpcCall: return code is negative");
+    if (fxn_ret < 0)
 
 
 
     // Clean up the memory we have allocated.
     free(args);
 
-    DLOG("DONE: mknod: return code is %d", fxn_ret);
+
 
     // Finally return the value we got from the server.
     return fxn_ret;
@@ -265,7 +263,7 @@ int rpcCall_open(void *userdata, const char *path,
                     struct fuse_file_info *fi) {
     // Called to open a file.
     // SET UP THE RPC CALL
-    DLOG("Received open rpcCall from local client...");
+
 
     // getattr has 4 arguments.
     int ARG_COUNT = 3;
@@ -314,24 +312,24 @@ int rpcCall_open(void *userdata, const char *path,
     if (rpc_ret < 0) {
         // Something went wrong with the rpcCall, return a sensible return
         // value. In this case lets return, -EINVAL
-        DLOG( "Open rpcCall: fail");
+
         fxn_ret = -EINVAL;
     } else {
         // Our RPC call succeeded. However, it's possible that the return code
         // from the server is not 0, that is it may be -errno. Therefore, we
         // should set our function return value to the retcode from the server.
-        DLOG("OPEN: SUCCESS %d",ret_code);
-        DLOG("OPEN: %ld", fi->fh);
+
+
         fxn_ret = ret_code;
     }
 
-    if (fxn_ret < 0) DLOG("Open rpcCall: return code is negative");
+    if (fxn_ret < 0)
 
 
     // Clean up the memory we have allocated.
     free(args);
 
-    DLOG("DONE: open: return code is %d", fxn_ret);
+
 
     // Finally return the value we got from the server.
     return fxn_ret;
@@ -341,7 +339,7 @@ int rpcCall_release(void *userdata, const char *path,
                        struct fuse_file_info *fi) {
     // Called to release a file.
     // SET UP THE RPC CALL
-    DLOG("Received release rpcCall from local client...");
+
 
     // getattr has 4 arguments.
     int ARG_COUNT = 3;
@@ -390,7 +388,7 @@ int rpcCall_release(void *userdata, const char *path,
     if (rpc_ret < 0) {
         // Something went wrong with the rpcCall, return a sensible return
         // value. In this case lets return, -EINVAL
-        DLOG( "Release rpcCall: fail");
+
         fxn_ret = -EINVAL;
     } else {
         // Our RPC call succeeded. However, it's possible that the return code
@@ -399,13 +397,13 @@ int rpcCall_release(void *userdata, const char *path,
         fxn_ret = ret_code;
     }
 
-    if (fxn_ret < 0) DLOG("Release rpcCall: return code is negative");
+    if (fxn_ret < 0)
 
 
     // Clean up the memory we have allocated.
     free(args);
 
-    DLOG("DONE: open: return code is %d", fxn_ret);
+
 
     // Finally return the value we got from the server.
     return fxn_ret;
@@ -419,7 +417,7 @@ int rpcCall_read(void *userdata, const char *path, char *buf, size_t size,
       Sicne array has limited size, we need to make multiple rpcCall to perform write
     */
 
-    DLOG("Received read rpcCall from local client...");
+
 
     // MAKE THE RPC CALL
     size_t readRemain = size, rpcSize = MAX_ARRAY_LEN;
@@ -474,19 +472,19 @@ int rpcCall_read(void *userdata, const char *path, char *buf, size_t size,
       int rpc_ret = rpcCall((char *)"read", arg_types, args);
 
       if (rpc_ret < 0) {
-        DLOG("CURRENT READ RPC CALL FAIL");
+
         fxn_ret = -EINVAL;
         return fxn_ret;
       }
 
       if (ret_code < 0) {
-        DLOG("CURRENT READ SERVER FAIL");
+
         fxn_ret = ret_code;
         return fxn_ret;
       }
 
       if (ret_code < MAX_ARRAY_LEN){
-        DLOG("CURRENT READ FINISH + SUCCEEDDDD");
+
         fxn_ret = total + ret_code;
         return fxn_ret;
       }
@@ -548,10 +546,10 @@ int rpcCall_read(void *userdata, const char *path, char *buf, size_t size,
     int rpc_ret = rpcCall((char *)"read", arg_types, args);
 
     if(rpc_ret < 0){
-        DLOG( "READ: LAST RPC CALL FAIL");
+
         fxn_ret = -EINVAL;
     } else if(ret_code < 0){
-        DLOG( "READ: LAST SERVER FAIL");
+
         fxn_ret = ret_code;
     } else {
         fxn_ret = total + ret_code;
@@ -561,11 +559,11 @@ int rpcCall_read(void *userdata, const char *path, char *buf, size_t size,
 
 
     if (fxn_ret < 0) {
-      DLOG("Read rpcCall: return code is negative");
+
       return fxn_ret;
     }
 
-    DLOG("DONE: read: return code is %d", fxn_ret);
+
 
     // Return the requested bytes to read marks a success
     return fxn_ret;
@@ -579,7 +577,7 @@ int rpcCall_write(void *userdata, const char *path, const char *buf,
       Sicne array has limited size, we need to make multiple rpcCall to perform write
     */
 
-    DLOG("Received write rpcCall from local client...");
+
 
     // MAKE THE RPC CALL
     size_t writeRemain = size, rpcSize = MAX_ARRAY_LEN;
@@ -634,19 +632,19 @@ int rpcCall_write(void *userdata, const char *path, const char *buf,
       int rpc_ret = rpcCall((char *)"write", arg_types, args);
 
       if (rpc_ret < 0) {
-        DLOG("CURRENT WRITE RPC CALL FAIL");
+
         fxn_ret = -EINVAL;
         return fxn_ret;
       }
 
       if (ret_code < 0) {
-        DLOG("CURRENT WRITE SERVER FAIL");
+
         fxn_ret = ret_code;
         return fxn_ret;
       }
 
       if (ret_code < MAX_ARRAY_LEN){
-        DLOG("CURRENT WRITE FINISH + SUCCEEDDDD");
+
         fxn_ret = total + ret_code;
         return fxn_ret;
       }
@@ -708,10 +706,10 @@ int rpcCall_write(void *userdata, const char *path, const char *buf,
     int rpc_ret = rpcCall((char *)"write", arg_types, args);
 
     if(rpc_ret < 0){
-        DLOG( "WRITE: LAST RPC CALL FAIL");
+
         fxn_ret = -EINVAL;
     } else if(ret_code < 0){
-        DLOG( "WRITE: LAST SERVER FAIL");
+
         fxn_ret = ret_code;
     } else {
         fxn_ret = total + ret_code;
@@ -721,11 +719,11 @@ int rpcCall_write(void *userdata, const char *path, const char *buf,
 
 
     if (fxn_ret < 0) {
-      DLOG("Write rpcCall: return code is negative");
+
       return fxn_ret;
     }
 
-    DLOG("DONE: Write: return code is %d", fxn_ret);
+
 
     // Return the requested bytes to read marks a success
     return fxn_ret;
@@ -734,7 +732,7 @@ int rpcCall_write(void *userdata, const char *path, const char *buf,
 int rpcCall_truncate(void *userdata, const char *path, off_t newsize) {
   // Called to release a file.
   // SET UP THE RPC CALL
-  DLOG("Received truncate rpcCall from local client...");
+
 
   // getattr has 4 arguments.
   int ARG_COUNT = 3;
@@ -780,7 +778,7 @@ int rpcCall_truncate(void *userdata, const char *path, off_t newsize) {
   if (rpc_ret < 0) {
       // Something went wrong with the rpcCall, return a sensible return
       // value. In this case lets return, -EINVAL
-      DLOG( "Truncate rpcCall: fail");
+
       fxn_ret = -EINVAL;
   } else {
       // Our RPC call succeeded. However, it's possible that the return code
@@ -789,13 +787,13 @@ int rpcCall_truncate(void *userdata, const char *path, off_t newsize) {
       fxn_ret = ret_code;
   }
 
-  if (fxn_ret < 0) DLOG("Truncate rpcCall: return code is negative");
+  if (fxn_ret < 0)
 
 
   // Clean up the memory we have allocated.
   free(args);
 
-  DLOG("DONE: truncate: return code is %d", fxn_ret);
+
 
   // Finally return the value we got from the server.
   return fxn_ret;
@@ -805,7 +803,7 @@ int rpcCall_fsync(void *userdata, const char *path,
                      struct fuse_file_info *fi) {
   // Called to release a file.
   // SET UP THE RPC CALL
-  DLOG("Received fsync rpcCall from local client...");
+
 
   // getattr has 4 arguments.
   int ARG_COUNT = 3;
@@ -850,7 +848,7 @@ int rpcCall_fsync(void *userdata, const char *path,
   if (rpc_ret < 0) {
     // Something went wrong with the rpcCall, return a sensible return
     // value. In this case lets return, -EINVAL
-    DLOG( "Fsync rpcCall: fail");
+
     fxn_ret = -EINVAL;
   } else {
     // Our RPC call succeeded. However, it's possible that the return code
@@ -859,13 +857,13 @@ int rpcCall_fsync(void *userdata, const char *path,
     fxn_ret = ret_code;
   }
 
-  if (fxn_ret < 0) DLOG("Fsync rpcCall: return code is negative");
+  if (fxn_ret < 0)
 
 
   // Clean up the memory we have allocated.
   free(args);
 
-  DLOG("DONE: truncate: return code is %d", fxn_ret);
+
 
   // Finally return the value we got from the server.
   return fxn_ret;
@@ -877,7 +875,7 @@ int rpcCall_utimens(void *userdata, const char *path,
 
     // Called to release a file.
     // SET UP THE RPC CALL
-    DLOG("Received utimens rpcCall from local client...");
+
 
     // getattr has 4 arguments.
     int ARG_COUNT = 3;
@@ -922,7 +920,7 @@ int rpcCall_utimens(void *userdata, const char *path,
     if (rpc_ret < 0) {
        // Something went wrong with the rpcCall, return a sensible return
        // value. In this case lets return, -EINVAL
-       DLOG( "Utimens rpcCall: fail");
+
        fxn_ret = -EINVAL;
     } else {
        // Our RPC call succeeded. However, it's possible that the return code
@@ -931,13 +929,13 @@ int rpcCall_utimens(void *userdata, const char *path,
        fxn_ret = ret_code;
     }
 
-    if (fxn_ret < 0) DLOG("Utimens rpcCall: return code is negative");
+    if (fxn_ret < 0)
 
 
     // Clean up the memory we have allocated.
     free(args);
 
-    DLOG("DONE: truncate: return code is %d", fxn_ret);
+
 
     // Finally return the value we got from the server.
     return fxn_ret;
