@@ -1506,13 +1506,13 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
   //DLOG(.*)
 
   int sys_ret, fxn_ret, dfs_ret;
-    struct file_metadata * file_meta = (*((openFiles *) userdata))[path];
-    struct timespec Tc = file_meta->tc;
-    struct timespec T = time(0);
+    struct fileMetadata * file_meta = (*openFiles)[path];
+    time_t Tc = file_meta->tc;
+    time_t T = time(0);
 
     // get T_client and T_server
     struct stat* statbuf = new struct stat;
-    char * full_path = get_full_path(path);
+    char * full_path = get_cache_path(path);
 
     sys_ret = stat(full_path, statbuf);
     if (sys_ret < 0){
@@ -1523,7 +1523,7 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
     }
     struct timespec T_client = statbuf->st_mtim;
 
-    dfs_ret = rpcCall_getattr(userdata, path, statbuf);
+    dfs_ret = rpcCall_getattr((void *)open_files, path, statbuf);
     if (dfs_ret < 0){
         delete statbuf;
         return sys_ret;
@@ -1538,7 +1538,7 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
         struct fuse_file_info * fi = new struct fuse_file_info;
         fi->fh = file_meta->server_mode;
         fi->flags = O_RDONLY;
-        dfs_ret = download_to_client(userdata, path, fi);
+        dfs_ret = download_to_client((void *)userdata, path, fi);
 
         if (dfs_ret < 0){
             delete fi;
