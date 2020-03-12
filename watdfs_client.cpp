@@ -3,7 +3,6 @@
 // You SHOULD change this file
 //
 #include "watdfs_client.h"
-#include "rpcCall.h"
 #include "debug.h"
 INIT_LOG
 
