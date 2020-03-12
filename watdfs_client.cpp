@@ -1500,15 +1500,24 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
 double timespec_diff2(struct timespec T1, struct timespec T2){
     return (double) (difftime(T1.tv_sec, T2.tv_sec));
 }
+struct timespec get_curr_time(){
+    struct timespec *T_tmp_pointer = new struct timespec;
+    clock_gettime(CLOCK_REALTIME, T_tmp_pointer);
+
+    struct timespec T = *T_tmp_pointer;
+    delete T_tmp_pointer;
+
+    return T;
+}
 // w =1, r = 0
 bool freshness_check(openFiles *open_files, const char *cache_path, const char *path, int rw_flag) {
 
   //DLOG(.*)
 
   int sys_ret, fxn_ret, dfs_ret;
-    struct fileMetadata * file_meta = (*openFiles)[path];
+    struct fileMetadata * file_meta = (*open_files)[path];
     time_t Tc = file_meta->tc;
-    time_t T = time(0);
+    time_t T = get_curr_time();
 
     // get T_client and T_server
     struct stat* statbuf = new struct stat;
@@ -1538,7 +1547,7 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
         struct fuse_file_info * fi = new struct fuse_file_info;
         fi->fh = file_meta->server_mode;
         fi->flags = O_RDONLY;
-        dfs_ret = download_to_client((void *)userdata, path, fi);
+        dfs_ret = download_to_client((void *)open_files, path, fi);
 
         if (dfs_ret < 0){
             delete fi;
