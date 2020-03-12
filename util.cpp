@@ -78,13 +78,14 @@ struct global_state{
     std::map<std::string, struct file_metadata *> opened_files; // local filename, file access code (on heap, don't forget to free !!!!!!!!)
 };
 
+//TODO
 double timespec_diff(struct timespec T1, struct timespec T2){
     return (double) (difftime(T1.tv_sec, T2.tv_sec));
 }
-
+//TODO
 struct timespec get_curr_time(){
     struct timespec *T_tmp_pointer = new struct timespec;
-    clock_gettime(CLOCK_REALTIME, T_tmp_pointer);
+    (CLOCK_REALTIME, T_tmp_pointer);
 
     struct timespec T = *T_tmp_pointer;
     delete T_tmp_pointer;
@@ -188,6 +189,9 @@ int write_freshness_check(void *userdata, const char *path){// True if fresh
         dfs_ret = sys_ret;
     }
     struct timespec T_server = statbuf->st_mtim;
+
+    if (!( timespec_diff(T, Tc ) < (double) ((global_state *) userdata)->cache_interval
+        ||timespec_diff(T_client, T_server) == 0)){
 
     if (!( timespec_diff(T, Tc ) < (double) ((global_state *) userdata)->cache_interval
           ||timespec_diff(T_client, T_server) == 0)){

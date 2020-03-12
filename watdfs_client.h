@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <cstdint>
 
 #ifdef __cplusplus
 // This is for backward compatibility, but all your code *must* be in C++.
