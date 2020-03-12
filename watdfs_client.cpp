@@ -1420,7 +1420,7 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
     *ret_code = initRet;
 
     // init global trackers
-    openFiles *userdata=  new std::map<std::string, fileMetadata>(); //TODO: free it
+    openFiles *userdata=  new std::map<std::string, fileMetadata*>(); //TODO: free it
     cacheInterval = cache_interval;
     cachePath = (char *)malloc(strlen(path_to_cache) + 1);
     strcpy(cachePath, path_to_cache);
@@ -1443,7 +1443,7 @@ void watdfs_cli_destroy(void *userdata) {
     }
 
     free(cachePath);
-
+    // delete userdata;
     userdata = NULL;
 }
 
@@ -1850,8 +1850,8 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     DLOG("Received read rpcCall from local client...");
 
     int fxn_ret = 0;
-
-    int ret_code = freshness_check((openFiles *)userdata, path, 0);
+    char *cache_path = get_cache_path(path);
+    int ret_code = freshness_check((openFiles *)userdata, cache_path, path, 0);
     struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
     target->tc = time(NULL); // curr time
@@ -1863,7 +1863,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
     }
 
     //fxn_ret = _read(userdata, path, buf, size, offset, fi);
-    int fxn_ret = pread(fi->fh, buf, size, offset);
+    fxn_ret = pread(fi->fh, buf, size, offset);
 
     // handle error
     if (fxn_ret < 0) {
@@ -1883,11 +1883,13 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     DLOG("Received write rpcCall from local client...");
     int fxn_ret = 0;
 
+    char *cache_path = get_cache_path(path);
+
     int sys_ret = _write(userdata, path, buf, size, offset, fi);
     if (sys_ret < 0) return sys_ret;
 
 
-    int ret_code = freshness_check((openFiles *) userdata, path, 1);
+    int ret_code = freshness_check((openFiles *) userdata, cache_path, path, 1);
     struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
     target->tc = time(NULL); // curr time
@@ -1909,17 +1911,17 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
   char *cache_path = get_cache_path(path);
 
   // call system call here
-  sys_ret = truncate(cache_path, newsize);
+  int sys_ret = truncate(cache_path, newsize);
 
   // check freshness
-  fxn_ret = freshness_check((openFiles *) userdata, path, 1);
+  fxn_ret = freshness_check((openFiles *) userdata, cache_path, path, 1);
 
-  if (ret_code < 0){
+  if (fxn_ret < 0){
     DLOG("freshness check in truncate failed...");
     free(full_path);
     return fxn_ret;
   }
-  free(full_path);
+  free(cache_path);
 
   return fxn_ret;
 }
@@ -1997,7 +1999,7 @@ int watdfs_cli_fsync(void *userdata, const char *path,
   }
 
   //update time
-  struct fileMetadata * target = (*((opened_files*)userdata))[std::string(path)];
+  struct fileMetadata * target = (*((openFiles*)userdata))[std::string(path)];
 
   target->tc = time(NULL); // curr time
 
@@ -2019,9 +2021,9 @@ int watdfs_cli_utimens(void *userdata, const char *path,
   int ret_code = 0;
   // init new stat to update meta
   struct stat *statbuf = new struct stat;
-  int fxn_ret = stat(full_path, statbuf);
+  int fxn_ret = stat(cache_path, statbuf);
 
-  if (sys_ret < 0) {
+  if (fxn_ret < 0) {
     DLOG("error in utimens for stat sys call");
     fxn_ret = -errno;
     free(cache_path);
@@ -2039,11 +2041,11 @@ int watdfs_cli_utimens(void *userdata, const char *path,
 
   if (is_atime_diff){
     // need to check read freshnnes
-    ret_code = freshness_check(userdata, path, 0);
+    ret_code = freshness_check(userdata, cache_path, path, 0);
 
-    if (utils_ret < 0){
+    if (ret_code < 0){
       DLOG("utimens freshness check failed");
-      return utils_ret;
+      return ret_code;
     }
 
     sys_ret = utimensat(0, cache_path, ts, O_RDONLY);
@@ -2052,18 +2054,18 @@ int watdfs_cli_utimens(void *userdata, const char *path,
 
   if (is_mtime_diff){
     // need to check write freshness
-    ret_code = freshness_check(userdata, path, 1);
+    ret_code = freshness_check(userdata, cache_path, path, 1);
 
-    if (utils_ret < 0){
+    if (ret_code < 0){
       DLOG("utimens freshness check failed");
-      return utils_ret;
+      return ret_code;
     }
 
     sys_ret = utimensat(0, cache_path, ts, O_WRONLY);
 
   }
   // extra sys call to utimensat
-  if (rw_flag == 1) {
+  if (is_mtime_diff) {
     ret_code = rpcCall_utimens(userdata, path, ts);
     if (ret_code < 0){
       DLOG("utimens rpccall check failed");
