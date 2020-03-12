@@ -1048,6 +1048,11 @@ static int unlock(const char *path, int mode){
 
 
 // ------------ define util functions below ----------------------
+bool is_file_open(struct file_state *userdata, const char *cache_path){
+
+    std::string(full_path);
+    return (userdata->openFile).find(std::string(full_path)) != (userdata->openFile).end()
+}
 
 char *get_full_path(struct file_state *userdata, const char* rela_path) {
   int rela_path_len = strlen(rela_path);
@@ -1063,10 +1068,10 @@ char *get_full_path(struct file_state *userdata, const char* rela_path) {
   return full_path;
 }
 
-bool is_file_open(struct file_state *open_files, const char *path) {
-  std::string p = std::string(path);
-  return (open_files->openFiles).count(p) > 0 ? true : false;
-}
+// bool is_file_open(struct file_state *open_files, const char *path) {
+//   std::string p = std::string(path);
+//   return (open_files->openFiles).count(p) > 0 ? true : false;
+// }
 
 struct fileMetadata get_file_metadata(struct file_state *userdata, const char *path) {
   return (userdata->openFiles)[std::string(path)];
@@ -1491,7 +1496,7 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
     *ret_code = initRet;
 
     // init global trackers
-    struct file_state * userdata = (struct file_state *)malloc(sizeof(struct file_state));;
+    struct file_state * userdata = new struct file_state;
     // userdata->cachePath=  new std::map<std::string, fileMetadata*>(); //TODO: free it
     userdata->cacheInterval = cache_interval;
     // allocate memory for path
@@ -1534,10 +1539,9 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     DLOG("getattr triggered3");
     std::string p = std::string(full_path);
     DLOG("getattr triggered2");
-    (((struct file_state *)userdata)->openFiles).find(p) != (((struct file_state *)userdata)->openFiles).end();
     DLOG("all good");
     // validate if file open, and prepare for downloading the data to client
-    if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
+    if (!is_file_open((struct file_state *)userdata, full_path)) {
       DLOG("getattr triggered111");
       struct stat *statbuf_tmp = new struct stat;
       DLOG("getattr triggered1111");
