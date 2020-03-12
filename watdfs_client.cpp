@@ -1068,7 +1068,7 @@ bool is_file_open(struct file_state *open_files, const char *path) {
   return (open_files->openFiles).count(p) > 0 ? true : false;
 }
 
-struct fileMetadata * get_file_metadata(struct file_state *userdata, const char *path) {
+struct fileMetadata get_file_metadata(struct file_state *userdata, const char *path) {
   return (userdata->openFiles)[std::string(path)];
 }
 
@@ -1145,7 +1145,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       rpc_ret = truncate(full_path, (off_t)size);
 
       if (rpc_ret < 0){
-        DLOG("download error")
+        DLOG("download error");
         free(full_path);
         delete statbuf;
         delete fi;
@@ -1187,8 +1187,8 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       //DLOG(.*)
 
       // update metadata
-      target->client_mode = local_fh_retcode;// server
-      target->server_mode = fi->fh;// local
+      // target->client_mode = local_fh_retcode;// server
+      // target->server_mode = fi->fh;// local
 
       // update Tclient = Tserver and Tc = current time
       struct timespec ts[2];
@@ -1297,8 +1297,7 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
     sys_ret = open(full_path, flag4); //TODO???
 
     if (sys_ret < 0){
-      DLOG("push error")
-      free(full_path);
+      DLOG("push error");
       delete statbuf;
       delete fi;
       unlock(path, RW_READ_LOCK);
@@ -1339,11 +1338,10 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
     ret_code = pread(sys_ret, buf, size, 0);
 
     if (ret_code < 0){
-      DLOG("push error")
+      DLOG("push error");
       unlock(path, RW_READ_LOCK);
       free(buf);
       delete statbuf;
-      free(full_path);
       return -errno;
     }
 
@@ -1351,8 +1349,7 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
     ret_code = rpcCall_truncate((void *)userdata, path, size);
 
     if (ret_code < 0){
-      DLOG("push error")
-      free(full_path);
+      DLOG("push error");
       delete statbuf;
       delete fi;
       unlock(path, RW_READ_LOCK);
@@ -1361,8 +1358,7 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
 
     ret_code = rpc_write(userdata, path, buf, stat_client->st_size, 0, fi_server);
     if(ret_code < 0){
-      DLOG("push error")
-      free(full_path);
+      DLOG("push error");
       delete statbuf;
       delete fi;
       unlock(path, RW_READ_LOCK);
@@ -1384,8 +1380,7 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
     // update the timestamps of a file by calling utimensat
     ret_code = rpcCall_utimens((void *)userdata, path, ts);
     if (ret_code < 0) {
-      DLOG("push error")
-      free(full_path);
+      DLOG("push error1");
       delete statbuf;
       delete fi;
       unlock(path, RW_READ_LOCK);
@@ -1394,8 +1389,7 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
 
     ret_code = rpcCall_getattr((void *)userdata, path, statduf);
     if (ret_code < 0) {
-      DLOG("push error")
-      free(full_path);
+      DLOG("push error2");
       delete statbuf;
       delete fi;
       unlock(path, RW_READ_LOCK);
@@ -1428,9 +1422,8 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
     rpc_ret = unlock(path, RW_READ_LOCK);
 
     if (rpc_ret < 0){
-      DLOG("download error")
+      DLOG("push error3");
       free(buf);
-      free(full_path);
       // delete ts;
       delete statbuf;
       return sys_ret;
@@ -1441,7 +1434,6 @@ static int push_to_server(struct file_state *userdata, const char *path, struct 
 
     free(buf);
     delete fi;
-    free(full_path);
 
     delete statbuf;
     return fxn_ret;
@@ -1984,7 +1976,6 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
     ret_code = rpcCall_getattr(userdata, path, statbuf);
     if (ret_code < 0) {
       fxn_ret = ret_code;
-      free(full_path);
       free(statbuf);
       DLOG("error in truncate");
       return fxn_ret;
@@ -1996,7 +1987,6 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
 
   }
   free(statbuf);
-  free(full_path);
 
   return fxn_ret;
 }
