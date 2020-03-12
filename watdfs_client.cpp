@@ -1911,14 +1911,14 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
   char *cache_path = get_cache_path(path);
 
   // call system call here
-  int sys_ret = truncate(cache_path, newsize);
+  fxn_ret = truncate(cache_path, newsize);
 
   // check freshness
   fxn_ret = freshness_check((openFiles *) userdata, cache_path, path, 1);
 
   if (fxn_ret < 0){
     DLOG("freshness check in truncate failed...");
-    free(full_path);
+    free(cache_path);
     return fxn_ret;
   }
   free(cache_path);
@@ -2041,20 +2041,20 @@ int watdfs_cli_utimens(void *userdata, const char *path,
 
   if (is_atime_diff){
     // need to check read freshnnes
-    ret_code = freshness_check(userdata, cache_path, path, 0);
+    ret_code = freshness_check((openFiles *)userdata, cache_path, path, 0);
 
     if (ret_code < 0){
       DLOG("utimens freshness check failed");
       return ret_code;
     }
 
-    sys_ret = utimensat(0, cache_path, ts, O_RDONLY);
+    int sys_ret = utimensat(0, cache_path, ts, O_RDONLY);
 
   }
 
   if (is_mtime_diff){
     // need to check write freshness
-    ret_code = freshness_check(userdata, cache_path, path, 1);
+    ret_code = ç(userdata, cache_path, path, 1);
 
     if (ret_code < 0){
       DLOG("utimens freshness check failed");
