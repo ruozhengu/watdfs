@@ -1531,9 +1531,9 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     DLOG("getattr triggered");
 
     char *full_path = get_full_path((struct file_state *)userdata, path);
-
+    DLOG("getattr triggered3");
     std::string p = std::string(full_path);
-
+    DLOG("getattr triggered2");
     // validate if file open, and prepare for downloading the data to client
     if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
       struct stat *statbuf_tmp = new struct stat;
@@ -1546,6 +1546,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
         fxn_ret = ret_code;
         return fxn_ret;
       }
+      DLOG("getattr triggered1");
       // download data to client
       ret_code = download_to_client((struct file_state*)userdata, full_path, path);
       sys_ret = open(full_path, flag1);
@@ -1564,6 +1565,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
       }
       delete statbuf_tmp;
     } else {
+      DLOG("getattr triggered5");
       struct stat *statbuf_tmp = new struct stat;
       //read only the file, file already opened
       if (flag1 == (((struct file_state*)userdata)->openFiles)[p].client_mode &
@@ -1584,6 +1586,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
         time_t curr_time = time(0);
         ((((struct file_state*)userdata)->openFiles)[p]).tc = curr_time;
       }
+      DLOG("getattr triggered6");
       // sys call to stat
       int ret_code = stat(full_path, statbuf);
       if(ret_code < 0){
