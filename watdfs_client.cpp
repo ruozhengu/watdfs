@@ -1497,7 +1497,7 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
       return fxn_ret;
     }
 }
-double timespec_diff2(struct timespec T1, struct timespec T2){
+double timespec_diff2(time_t T1, time_t T2){
     return (double) (difftime(T1.tv_sec, T2.tv_sec));
 }
 
@@ -1533,8 +1533,8 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
     }
     struct timespec T_server = statbuf->st_mtim;
 
-    if (!( timespec_diff(T, Tc ) < cacheInterval
-        ||timespec_diff(T_client, T_server) == 0)){
+    if (!( timespec_diff2(T, Tc ) < cacheInterval
+        ||timespec_diff2(T_client, T_server) == 0)){
         //std::cerr << "file timeout and freshed" << std::endl;
         struct fuse_file_info * fi = new struct fuse_file_info;
         fi->fh = file_meta->server_mode;
