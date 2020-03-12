@@ -1097,133 +1097,286 @@ static int _write(void *userdata, const char *path, const char *buf, size_t size
 //     return sys_ret;
 // }
 
+int write_from_buffer_to_local_file(void *userdata, const char *path, const char *buf,
+                              size_t size, off_t offset){
+    // Write size amount of data at offset of file from buf.
+
+    // MAKE THE RPC CALL
+    int sys_ret = 0;
+    int fxn_ret = 0;
+    int size_dynamic = size;
+    int actually_write = 0;
+    size_t size_current_write;
+
+    //std::cerr <<"write_from_buffer_to_local_file fh  "<< ((global_state*)userdata)->opened_files[path]->fh_client_local << std::endl;
+
+    while (size_dynamic > 0){
+        if (size_dynamic > MAX_ARRAY_LEN){
+            size_current_write = MAX_ARRAY_LEN;
+        }else{
+            size_current_write = size_dynamic;
+        }
+
+        sys_ret = pwrite((*((openFile*)userdata))[path]->client_mode, buf, size_current_write, offset);
+
+        if (sys_ret< 0){
+            fxn_ret = -errno;
+            break;
+        }else{
+            actually_write = actually_write + sys_ret;
+            fxn_ret = size;
+            if (sys_ret < size_current_write){//EOF meet
+                break;
+            }
+        }
+
+        size_dynamic = size_dynamic - size_current_write;
+        offset = offset + size_current_write;
+    }
+
+
+    return fxn_ret;
+}
+
 
 static int download_to_client(void *userdata, const char *path, struct fuse_file_info *fi){
 
-    //DLOG(.*)
+    // //DLOG(.*)
+    //
+    // int sys_ret = lock(path, RW_READ_LOCK);
+    //
+    // if (sys_ret < 0){
+    //
+    //   //DLOG(.*)
+    //   return sys_ret;
+    //
+    // } else {
+    //
+    //   //DLOG(.*)
+    //
+    //   int fxn_ret = sys_ret;
+    //
+    //   struct stat *statbuf = new struct stat;
+    //
+    //   int rpc_ret = rpcCall_getattr(userdata, path, statbuf);
+    //
+    //   if (rpc_ret < 0){
+    //       unlock(path, RW_READ_LOCK);
+    //       delete statbuf;
+    //       return rpc_ret;
+    //   }
+    //
+    //   //DLOG(.*)
+    //
+    //   char *cache_path = get_cache_path(path);
+    //
+    //   size_t size = statbuf->st_size;
+    //
+    //   // open local file
+    //   sys_ret = open(cache_path, O_CREAT | O_RDWR, S_IRWXU);
+    //
+    //   if (sys_ret < 0) {
+    //     //DLOG(.*)
+    //     free(cache_path);
+    //     delete statbuf;
+    //     unlock(path, RW_READ_LOCK);
+    //     return -errno;
+    //   }
+    //
+    //   int local_fh_retcode = sys_ret;
+    //   struct fileMetadata *target = (*((openFiles *) userdata))[path];
+    //   target->client_mode = local_fh_retcode;
+    //
+    //   // step1: truncate local file
+    //   sys_ret = truncate(cache_path, (off_t)size);
+    //
+    //   if (sys_ret < 0){
+    //       free(cache_path);
+    //       delete statbuf;
+    //       unlock(path, RW_READ_LOCK);
+    //       return -errno;
+    //   }
+    //
+    //   //DLOG(.*)
+    //
+    //   // read the file from server
+    //   char *buf = (char *) malloc(((off_t) size) * sizeof(char));
+    //
+    //   rpc_ret = rpcCall_read(userdata, path, buf, size, 0, fi);
+    //
+    //   if (rpc_ret < 0){
+    //       free(buf);
+    //       delete statbuf;
+    //       free(cache_path);
+    //       unlock(path, RW_READ_LOCK);
+    //       return rpc_ret;
+    //   }
+    //
+    //   //DLOG(.*)
+    //
+    //   // write from server to local
+    //   sys_ret = _write(userdata, path, buf, size, 0, fi); //TODO: not sure
+    //
+    //   if (sys_ret < 0){
+    //     unlock(path, RW_READ_LOCK);
+    //     free(buf);
+    //     delete statbuf;
+    //     free(cache_path);
+    //     return sys_ret;
+    //   }
+    //
+    //   //DLOG(.*)
+    //
+    //   // update metadata
+    //   target->client_mode = local_fh_retcode;// server
+    //   target->server_mode = fi->fh;// local
+    //
+    //   // update Tclient = Tserver and Tc = current time
+    //   struct timespec t[2];
+    //
+    //   t[0] = (struct timespec)(statbuf->st_mtim);
+    //   t[1] = (struct timespec)(statbuf->st_mtim);
+    //
+    //   int dirfd = 0;
+    //   int flag = 0;
+    //   // update the timestamps of a file by calling utimensat
+    //   sys_ret = utimensat(dirfd, cache_path, t, flag);
+    //
+    //   //DLOG(.*)
+    //
+    //
+    //   sys_ret = unlock(path, RW_READ_LOCK);
+    //
+    //   if (sys_ret < 0){
+    //       free(buf);
+    //       free(cache_path);
+    //       // delete ts;
+    //       delete statbuf;
+    //       return sys_ret;
+    //   }
+    //
+    //   //DLOG(.*)
+    //
+    //
+    //   free(buf);
+    //   free(cache_path);
+    //
+    //   delete statbuf;
+    //   fxn_ret = sys_ret;
+    //   return fxn_ret;
+    // }
 
-    int sys_ret = lock(path, RW_READ_LOCK);
+    int dfs_result, sys_ret, fxn_ret;
+    char * full_path = get_full_path(path);
 
-    if (sys_ret < 0){
+    // Get file attributes from the server
+    struct stat* statbuf = new struct stat;
 
-      //DLOG(.*)
-      return sys_ret;
-
-    } else {
-
-      //DLOG(.*)
-
-      int fxn_ret = sys_ret;
-
-      struct stat *statbuf = new struct stat;
-
-      int rpc_ret = rpcCall_getattr(userdata, path, statbuf);
-
-      if (rpc_ret < 0){
-          unlock(path, RW_READ_LOCK);
-          delete statbuf;
-          return rpc_ret;
-      }
-
-      //DLOG(.*)
-
-      char *cache_path = get_cache_path(path);
-
-      size_t size = statbuf->st_size;
-
-      // open local file
-      sys_ret = open(cache_path, O_CREAT | O_RDWR, S_IRWXU);
-
-      if (sys_ret < 0) {
-        //DLOG(.*)
-        free(cache_path);
+    ////std::cerr << "remote getattr called in open" << std::endl;
+    dfs_result = rpcCall_getattr(userdata, path, statbuf);
+    //std::cerr << "remote getattr finished in open" << dfs_result << std::endl;
+    if (dfs_result < 0){
+        ////std::cerr << "remote getattr failed in open" << std::endl;
+        fxn_ret = dfs_result;
         delete statbuf;
-        unlock(path, RW_READ_LOCK);
-        return -errno;
-      }
-
-      int local_fh_retcode = sys_ret;
-      struct fileMetadata *target = (*((openFiles *) userdata))[path];
-      target->client_mode = local_fh_retcode;
-
-      // step1: truncate local file
-      sys_ret = truncate(cache_path, (off_t)size);
-
-      if (sys_ret < 0){
-          free(cache_path);
-          delete statbuf;
-          unlock(path, RW_READ_LOCK);
-          return -errno;
-      }
-
-      //DLOG(.*)
-
-      // read the file from server
-      char *buf = (char *) malloc(((off_t) size) * sizeof(char));
-
-      rpc_ret = rpcCall_read(userdata, path, buf, size, 0, fi);
-
-      if (rpc_ret < 0){
-          free(buf);
-          delete statbuf;
-          free(cache_path);
-          unlock(path, RW_READ_LOCK);
-          return rpc_ret;
-      }
-
-      //DLOG(.*)
-
-      // write from server to local
-      sys_ret = _write(userdata, path, buf, size, 0, fi); //TODO: not sure
-
-      if (sys_ret < 0){
-        unlock(path, RW_READ_LOCK);
-        free(buf);
-        delete statbuf;
-        free(cache_path);
-        return sys_ret;
-      }
-
-      //DLOG(.*)
-
-      // update metadata
-      target->client_mode = local_fh_retcode;// server
-      target->server_mode = fi->fh;// local
-
-      // update Tclient = Tserver and Tc = current time
-      struct timespec t[2];
-
-      t[0] = (struct timespec)(statbuf->st_mtim);
-      t[1] = (struct timespec)(statbuf->st_mtim);
-
-      int dirfd = 0;
-      int flag = 0;
-      // update the timestamps of a file by calling utimensat
-      sys_ret = utimensat(dirfd, cache_path, t, flag);
-
-      //DLOG(.*)
-
-
-      sys_ret = unlock(path, RW_READ_LOCK);
-
-      if (sys_ret < 0){
-          free(buf);
-          free(cache_path);
-          // delete ts;
-          delete statbuf;
-          return sys_ret;
-      }
-
-      //DLOG(.*)
-
-
-      free(buf);
-      free(cache_path);
-
-      delete statbuf;
-      fxn_ret = sys_ret;
-      return fxn_ret;
+        free(full_path);
+        return fxn_ret;
     }
+    off_t size_of_file = statbuf->st_size;
+
+    // open the file
+    int local_fh;
+    sys_ret = open(full_path, O_CREAT | O_RDWR, 00777);// open locally
+    //std::cerr << "local open finished in open" << sys_ret << " file size" << size_of_file << std::endl;
+
+    if (sys_ret < 0) {
+        //std::cerr << "local open failed " << errno << std::endl;
+        ////std::cerr << "local open failed on client faield" << std::endl;
+        // If there is an error on the system call, then the return code should
+        // be -errno.
+        fxn_ret = -errno;
+        delete statbuf;
+        free(full_path);
+        return fxn_ret;
+    }else{
+        local_fh = sys_ret;
+        (*((openFiles *) userdata))[path]->client_mode = local_fh;
+    }
+
+    // truncate the file at the client
+    sys_ret = truncate(full_path, size_of_file);
+    //std::cerr << "truncate finished in open" << sys_ret << " file size " << size_of_file << std::endl;
+    if (sys_ret < 0){
+        //std::cerr << "error " << errno << std::endl;
+        fxn_ret = -errno;
+        delete statbuf;
+        free(full_path);
+        return fxn_ret;
+    }
+
+    // read the file from the server, stored in the buffer
+    char * buffer = (char *) malloc( size_of_file*sizeof(char));
+    //std::cerr << "read remote on client" << std::endl;
+
+    std::cerr << "download lock acquired" << std::endl;
+    sys_ret = lock(path, RW_READ_LOCK);
+    if (sys_ret < 0){
+        free(buffer);
+        delete statbuf;
+        return sys_ret;
+    }
+    dfs_result = rpcCall_read(userdata, path, buffer, size_of_file, 0, fi);
+    if (dfs_result < 0){
+        fxn_ret = dfs_result;
+        delete statbuf;
+        free(buffer);
+        free(full_path);
+        return fxn_ret;
+    }
+    sys_ret = unlock(path, RW_READ_LOCK);
+    if (sys_ret < 0){
+        free(buffer);
+        delete statbuf;
+        return sys_ret;
+    }
+    std::cerr << "download lock released" << std::endl;
+
+    // write the file to the client
+    // sys_ret is the fh
+    //std::cerr << "write from buffer to file" << std::endl;
+    sys_ret = write_from_buffer_to_local_file(userdata, path, buffer, size_of_file, 0);
+    ////std::cerr << "write from buffer to file finished in open" << sys_ret << std::endl;
+    if (sys_ret < 0){
+        fxn_ret = sys_ret;
+        delete statbuf;
+        free(buffer);
+        free(full_path);
+        return fxn_ret;
+    }
+
+    // update the file metadata at the client
+    (*((openFiles *) userdata))[path]->server_mode = fi->fh;// server
+    (*((openFiles *) userdata))[path]->client_mode = local_fh;// local
+
+    // ******** flags_local is setted in open, as the mode setted by the FUSE application, the original one
+
+    //local call utimens, set the modified time
+    struct timespec * ts = new struct timespec [2];
+    ts[1] = statbuf->st_mtim;
+    ts[0] = statbuf->st_atim;
+
+    sys_ret = utimensat(0, full_path, ts, 0);
+
+    //std::cerr <<"file opened " << file_opened(userdata, path) << " local fh " << local_fh << std::endl;
+
+    delete statbuf;
+    free(buffer);
+    free(full_path);
+    fxn_ret = sys_ret;
+
+    // Finally return the value we got from the server.
+    return fxn_ret;
+}
 }
 
 static int push_to_server(void *userdata, const char *path, struct fuse_file_info *fi){
@@ -1344,67 +1497,59 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
       return fxn_ret;
     }
 }
-
+double timespec_diff2(struct timespec T1, struct timespec T2){
+    return (double) (difftime(T1.tv_sec, T2.tv_sec));
+}
 // w =1, r = 0
 bool freshness_check(openFiles *open_files, const char *cache_path, const char *path, int rw_flag) {
 
   //DLOG(.*)
 
-  int sys_ret = 0;
-  int fxn_ret = 0;
-  int rpc_ret = 0;
+  int sys_ret, fxn_ret, dfs_ret;
+    struct file_metadata * file_meta = (*((openFiles *) userdata))[path];
+    struct timespec Tc = file_meta->tc;
+    struct timespec T = time(0);
 
-  struct fileMetadata * fm = get_file_metadata(open_files, path);
-  struct stat * statbuf = new struct stat;
-  time_t Tc = fm->tc;
-  time_t T = time(0);
+    // get T_client and T_server
+    struct stat* statbuf = new struct stat;
+    char * full_path = get_full_path(path);
 
-  sys_ret = stat(cache_path, statbuf);
+    sys_ret = stat(full_path, statbuf);
+    if (sys_ret < 0){
+        delete statbuf;
+        return sys_ret;
+    }else{
+        fxn_ret = sys_ret;
+    }
+    struct timespec T_client = statbuf->st_mtim;
 
-  if (sys_ret < 0) {
-    memset(statbuf, 0, sizeof(struct stat));
-    return sys_ret;
-  }
+    dfs_ret = rpcCall_getattr(userdata, path, statbuf);
+    if (dfs_ret < 0){
+        delete statbuf;
+        return sys_ret;
+    }else{
+        dfs_ret = sys_ret;
+    }
+    struct timespec T_server = statbuf->st_mtim;
 
-  time_t T_client = statbuf->st_mtime;
+    if (!( timespec_diff2(T, Tc ) < cacheInterval
+        ||timespec_diff2(T_client, T_server) == 0)){
+        //std::cerr << "file timeout and freshed" << std::endl;
+        struct fuse_file_info * fi = new struct fuse_file_info;
+        fi->fh = file_meta->server_mode;
+        fi->flags = O_RDONLY;
+        dfs_ret = download_to_client(userdata, path, fi);
 
-  fxn_ret = sys_ret;
-
-  rpc_ret = rpcCall_getattr((void *)open_files, path, statbuf);
-
-  if (rpc_ret < 0){
-    memset(statbuf, 0, sizeof(struct stat));
-    return sys_ret;
-  }
-
-  time_t T_server = statbuf->st_mtime;
-
-  struct fuse_file_info * fi = new struct fuse_file_info;
-
-  bool is_time_within_interval = difftime(cacheInterval, difftime(T, Tc)) > 0;
-  bool is_client_server_diff = (difftime(T_client, T_server)) != 0;
-
-  if (!is_time_within_interval || !is_client_server_diff) {
-    fi->fh = fm->server_mode;
-
-
-    if (rw_flag == 0 ) { //read flag on
-      fi->flags = O_RDONLY;
-      rpc_ret = download_to_client((void *)open_files, path, fi);
-    } else {
-      fi->flags = O_RDWR;
-      rpc_ret = push_to_server((void *)open_files, path, fi);
+        if (dfs_ret < 0){
+            delete fi;
+            delete statbuf;
+            return fxn_ret;
+        }
     }
 
-    if (rpc_ret < 0) {
-      delete fi;
-      memset(statbuf, 0, sizeof(struct stat));
-    }
-  } else {
-    delete fi;
-  }
-
-  return fxn_ret;
+    // free
+    delete statbuf;
+    return fxn_ret;
 }
 // ------------------ END OF UTIL ----------------------------
 
