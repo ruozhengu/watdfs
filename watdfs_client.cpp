@@ -1199,7 +1199,7 @@ static int download_to_client(void *userdata, const char *path, struct fuse_file
       int dirfd = 0;
       int flag = 0;
       // update the timestamps of a file by calling utimensat
-      sys_ret = utimensat(dirfd, cache_path, ts, flag);
+      sys_ret = utimensat(dirfd, cache_path, t, flag);
 
       //DLOG(.*)
 
@@ -1273,7 +1273,7 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
       // read the file from client
 
 
-      int rpc_ret = pread(fi->fh, buf, size, offset);
+      int rpc_ret = pread(fi->fh, buf, size, 0);
 
 
       if (rpc_ret < 0){
@@ -1303,14 +1303,14 @@ static int push_to_server(void *userdata, const char *path, struct fuse_file_inf
 
 
       // update Tclient = Tserver and Tc = current time
-      struct timespec *ts = new struct timespec[2];
+      struct timespec t[2];
 
-      ts[0] = statbuf->st_mtime;
-      ts[1] = statbuf->st_mtime;
+      t[0] = (struct timespec)(statbuf->st_mtim);
+      t[1] = (struct timespec)(statbuf->st_mtim);
 
 
       // update the timestamps of a file by calling utimensat
-      sys_ret = rpcCall_utimens(userdata, path, ts);
+      sys_ret = rpcCall_utimens(userdata, path, t);
 
       fxn_ret = sys_ret;
 
@@ -1357,7 +1357,7 @@ bool freshness_check(openFiles *open_files, const char *cache_path, const char *
   struct fileMetadata * fm = get_file_metadata(open_files, path);
   struct stat * statbuf = new struct stat;
   time_t Tc = fm->tc;
-  time_t T = time(0)
+  time_t T = time(0);
 
   sys_ret = stat(cache_path, statbuf);
 
@@ -1453,12 +1453,12 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
     char *cache_path = get_cache_path(path);
 
-    if (is_file_open((openFiles *)userdata), path) {
+    if (is_file_open((openFiles *)userdata, path)) {
 
       DLOG("file opened before, checking freshness ...");
 
       // check client server consistency
-      ret_code = freshness_check((openFiles *) userdata, path, 0);
+      ret_code = freshness_check((openFiles *) userdata,cache_path, path, 0);
 
       // handle return code
       if (ret_code < 0) {
@@ -1487,7 +1487,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf) {
 
       struct stat * tmp = new struct stat;
       // return error code if file exists on server ...
-      if (-2 == rpcCall_getattr(userdata, path, tmp) {
+      if (rpcCall_getattr(userdata, path, tmp) == -2) {
 
         // exsistence leads to an error ...
         DLOG("FAILED: file exists on server");
