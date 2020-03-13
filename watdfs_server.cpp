@@ -18,7 +18,8 @@ INIT_LOG
 #include <map>
 #include <cstring>
 #include <cstdlib>
-
+#define LOCK -666
+#define UNLOCK -667
 // Global state server_persist_dir.
 char *server_persist_dir = nullptr;
 
@@ -537,7 +538,7 @@ int watdfs_lock(int *argTypes, void **args){
 
     int r_w = (fileMutex[std::string(short_path)]).read ? 0 : 1;
     sys_ret = rw_lock_lock((fileMutex[std::string(short_path)]).lock, *((rw_lock_mode_t *)args[1]));
-    if (sys_ret < 0) *ret = -666;
+    if (sys_ret < 0) *ret = LOCK;
     else  *ret = sys_ret;
 
     free(full_path);
@@ -556,7 +557,7 @@ int watdfs_unlock(int *argTypes, void **args){
 
     int r_w = (fileMutex[std::string(short_path)]).read ? 0 : 1;
     sys_ret = rw_lock_unlock((fileMutex[std::string(short_path)]).lock, *((rw_lock_mode_t *)args[1]));
-    if (sys_ret < 0) *ret = -667;
+    if (sys_ret < 0) *ret = UNLOCK;
     else *ret = sys_ret;
 
     return 0;
