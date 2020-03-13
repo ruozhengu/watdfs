@@ -2001,6 +2001,7 @@ int file_open_load(void *userdata, const char * full_path, const char *path, str
   int fxn_ret = (ret_code < 0) ? ret_code : 0;
   int ret_code2 = watdfs_cli_download(userdata, path);
   fxn_ret = (ret_code2 < 0) ? ret_code2 : 0;
+  DLOG("open: new file is created and loaded into client");
   return fxn_ret;
 }
 
@@ -2013,6 +2014,7 @@ int watdfs_cli_open(void *userdata, const char *path,
     std::string p = std::string(full_path);
     // validate if file open, and prepare for downloading the data to client
     if(is_file_open((struct file_state *)userdata, full_path)){
+      DLOG("already open error");
       free(full_path);
       return -EMFILE;
     }
@@ -2039,13 +2041,14 @@ int watdfs_cli_open(void *userdata, const char *path,
       ret_code = open(full_path, fi->flags);
       if (ret_code < 0) {
         free(full_path);
-        free(statbuf);
+        free(stßatbuf);
         return -errno;
       }
+      DLOG("open: record this file now");
       // update metadata
-      (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode = fi->flags;
-      (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode = ret_code;
-      (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
+      struct fileMetadata newFile = {fi->flags, ret_code, time(0)};
+      (((struct file_state*)userdata)->openFiles)[std::string(full_path)] = newFile;
+      DLOG("CONFIRM: file opened and records: %d", (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode);
       fxn_ret = 0;
     }
     free(full_path);
