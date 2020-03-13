@@ -1049,8 +1049,6 @@ static int unlock(const char *path, int mode){
 
 // ------------ define util functions below ----------------------
 bool is_file_open(struct file_state *userdata, const char *full_path){
-
-
     return (userdata->openFiles).find(std::string(full_path)) != (userdata->openFiles).end();
 }
 
@@ -1227,171 +1225,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       return fxn_ret;
     }
 }
-void update_server_metadata(void *userdata, char *cache_path, const char *path, struct timespec mtime){
-    struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
-    int ret;
-    DLOG("updata server's metadata");
-    struct timespec t[2];
-    t[0] = mtime;
-    t[1] = mtime;
-    /* cout << "【Before call rpc_utimensat, ts[0]=" << t[0].tv_sec << "; ts[1]=" \
-        << t[1].tv_sec << "】" << std::endl; */
-    ret = rpcCall_utimens(userdata, path, t);
-
-    ret = rpcCall_getattr(userdata, path, stat_server);
-    //cout << "【after call rpc_utimensat, server_mtime=" << stat_server->st_mtime << " 】" << std::endl;
-    free(stat_server);
-}
-int watdfs_cli_upload(void *userdata, const char *path){
-    DLOG("start upload file from client to server ......");
-    struct stat *stat_client = (struct stat *)malloc(sizeof(struct stat));
-    struct fuse_file_info *fi_server = (struct fuse_file_info *)malloc(sizeof(struct fuse_file_info));
-    char *cache_path = get_full_path((file_state*)userdata, path);
-    int ret, fxn_ret=0;
-
-    // get file attributes on client
-    ret = stat(cache_path, stat_client);
-
-    // open the responded file on server, if call upload function, fi_server->flag must can write
-    // whether file exists on server
-    fi_server -> flags = O_RDWR;
-    ret = rpcCall_open(userdata, path, fi_server);  // no write permission
-    if(ret < 0){
-        ret = rpcCall_mknod(userdata, path, stat_client -> st_mode, stat_client -> st_dev);
-        ret = rpcCall_open(userdata, path, fi_server);
-    }
-
-    // read file from client to buffer
-    int fh_ret = open(cache_path, O_RDONLY);
-    if(ret < 0){
-        fxn_ret = -errno;
-    }
-    char *buf = (char *)malloc((stat_client->st_size)*sizeof(char));
-    ret = pread(fh_ret, buf, stat_client->st_size, 0);
-    DLOG("read from client to buf is : %s", buf);
-    //cout << "stat_client->st_size is ========" << stat_client->st_size;
-    DLOG("pread return code ======= %d", ret);
-    if(ret < 0){
-        fxn_ret = -errno;
-    }
-
-    // write from buffer to server
-    ret = rpcCall_truncate(userdata, path, stat_client->st_size);
-    if(ret < 0){
-        fxn_ret = ret;
-    }
-    ret = rpcCall_write(userdata, path, buf, stat_client->st_size, 0, fi_server);
-    if(ret < 0){
-        fxn_ret = ret;
-    }
-    DLOG("write from buf to server is : %s", buf);
-    update_server_metadata(userdata, cache_path, path, stat_client->st_mtim);
-
-    if(fxn_ret < 0){
-        DLOG("upload to server fail");
-    }else{
-        DLOG("download to client success");
-    }
-
-    // free all heap
-    free(stat_client);
-    free(fi_server);
-    free(cache_path);
-    free(buf);
-    return fxn_ret;
-}
-void update_client_metadata(void *userdata, char *cache_path, struct timespec mtime){
-    struct stat *stat_client = (struct stat *)malloc(sizeof(struct stat));
-    int ret;
-    DLOG("updata client's metadata");
-    struct timespec t[2];
-    t[0] = mtime;
-    t[1] = mtime;
-    /*cout << "【Before call sys_utimensat, ts[0]=" << t[0].tv_sec << "; ts[1]=" \
-        << t[1].tv_sec << "】" << endl; */
-    ret = utimensat(0, cache_path, t, 0);
-
-    ret = stat(cache_path, stat_client);
-    //cout << "【after call sys_utimensat, client_mtime=" << stat_client->st_mtime << " 】" << endl;
-
-    free(stat_client);
-}
-
-// int watdfs_cli_download(void *userdata, const char *path){
-//     DLOG("start download file from server to client ......");
-//     struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
-//     struct fuse_file_info *fi_server = (struct fuse_file_info *)malloc(sizeof(struct fuse_file_info));
-//     char *cache_path = get_full_path((file_state *)userdata, path);
-//     int ret, fxn_ret = 0;
-//
-//     ret = rpcCall_getattr(userdata, path, stat_server);
-//     if(ret < 0){
-//         fxn_ret = ret;
-//     }
-//
-//     // open both
-//
-//     int fh_cli = open(cache_path, O_RDWR);
-//     if(fh_cli < 0){
-//         DLOG("file doesn't exist on client, create new file");
-//         ret = mknod(cache_path, stat_server->st_mode, stat_server->st_dev);
-//         fh_cli = open(cache_path, O_RDWR);
-//     }
-//
-//     // truncate file on client
-//     ret = truncate(cache_path, stat_server -> st_size);
-//     if(ret < 0){
-//         fxn_ret = -errno;
-//     }
-//
-//     // read file from server to buffer
-//     char *buf = (char *)malloc((stat_server -> st_size)*sizeof(char));
-//     fi_server -> flags = O_RDONLY;
-//     ret = rpcCall_open(userdata, path, fi_server); // 只读方式打开不可能fail
-//     if(ret < 0){
-//         fxn_ret = ret;
-//     }
-//     ret = rpcCall_read(userdata, path, buf, stat_server -> st_size, 0, fi_server);
-//     DLOG("read from server to buf is : %s", buf);
-//     if(ret < 0){
-//         fxn_ret = ret;
-//         DLOG("fail read file on server");
-//     }
-//
-//     // write from buffer to client
-//     ret = pwrite(fh_cli, buf, stat_server->st_size, 0);
-//     if(ret < 0){
-//         fxn_ret = -errno;
-//     }
-//     DLOG("write from buf to client is : %s", buf);
-//     //cout << "stat_server->st_size is ========" << stat_server->st_size;
-//     DLOG("write return code ======= %d", ret);
-//
-//     // update client's metadata and close server
-//     update_client_metadata(userdata, cache_path, stat_server->st_mtim);
-//     ret = rpcCall_release(userdata, path, fi_server);
-//     if(ret < 0){
-//         fxn_ret = ret;
-//     }
-//     ret = close(fh_cli);
-//     if(ret < 0){
-//         fxn_ret = -errno;
-//     }
-//
-//     if(fxn_ret < 0){
-//         DLOG("download file from server to client fail");
-//     }else{
-//         DLOG("download file from server to client success");
-//     }
-//
-//
-//     // free all heap
-//     free(stat_server);
-//     free(fi_server);
-//     free(cache_path);
-//     free(buf);
-//     return fxn_ret;
-// }
 
 static int push_to_server(struct file_state *userdata, const char *full_path, const char *path){
 
@@ -1864,7 +1697,7 @@ int mknod_update(void *userdata, const char *full_path, const char *path, int fl
   if (ret_code < 0) return -errno;
 
   if(!freshness_check((file_state*)userdata, full_path, path)){
-      ret_code = watdfs_cli_upload(userdata, path);
+      ret_code = push_to_server((file_state*)userdata, full_path, path);
       if(ret_code < 0) return ret_code;
       time_to_curr(userdata, full_path);
   } else {
@@ -1885,7 +1718,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
     if (!is_file_open((struct file_state *)userdata, full_path)) {
       int sys_ret = mknod(full_path, mode, dev);
       if (sys_ret < 0)  fxn_ret = -EINVAL;
-      else fxn_ret = watdfs_cli_upload(userdata, path);
+      else fxn_ret = push_to_server((file_state*)userdata, full_path, path);
       fxn_ret = fxn_ret < 0 ? fxn_ret : 0;
     } else {
       int fl = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode & O_ACCMODE;
@@ -1997,7 +1830,7 @@ int watdfs_cli_release(void *userdata, const char *path,
 
     if (!(readonly == (file_flag & O_ACCMODE))) {
       // not read only, push the updates to server
-       sys_ret = watdfs_cli_upload(userdata, path);
+       sys_ret = push_to_server((file_state*)userdata, full_path, path);
        if (sys_ret < 0) return sys_ret;
     }
 
@@ -2068,7 +1901,7 @@ void check_fresh_then_load(void *userdata, const char * full_path, const char *p
   int fresh_or_not = freshness_check((file_state*)userdata, full_path, path);
   int fxn_ret = 0;
   if (fresh_or_not == 0) {
-    fxn_ret = watdfs_cli_upload(userdata, path);
+    fxn_ret = push_to_server((file_state*)userdata, full_path, path);
     // set time to current
     (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
     if (fxn_ret < 0) *code = fxn_ret;
@@ -2115,7 +1948,7 @@ int truncate_update(void *userdata, int flag, const char* full_path, const char*
       return -errno;
     }
     if (!freshness_check((file_state*)userdata, full_path, path)) {
-      ret_code = watdfs_cli_upload(userdata, path);
+      ret_code = push_to_server((file_state*)userdata, full_path, path);
       // set time to current
       (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
       if (ret_code < 0) return ret_code;
@@ -2180,7 +2013,7 @@ int watdfs_cli_fsync(void *userdata, const char *path,
 
   int ret_code = 0;
   int fxn_ret = 0;
-  ret_code = watdfs_cli_upload(userdata, path);
+  ret_code = push_to_server((file_state*)userdata, full_path, path);
 
   if (ret_code < 0) {
     DLOG("fsyn failed to upload data");
@@ -2204,7 +2037,7 @@ int utimens_update(void *userdata, int flag, const char* full_path, const char* 
     }
     if (!freshness_check((file_state*)userdata, full_path, path)) {
       // set time to current
-      ret_code = watdfs_cli_upload(userdata, path);
+      ret_code = push_to_server((file_state*)userdata, full_path, path);
       if (ret_code < 0) return ret_code;
       (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
 
