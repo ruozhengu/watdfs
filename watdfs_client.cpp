@@ -1647,7 +1647,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
             DLOG("file doesn't on server");
             fxn_ret = ret;
         }else{
-            ret = download_to_client((struct file_state *)userdata, full_path, path);
+            ret = download_to_client((struct file_state *)userdata, cache_path, path);
             DLOG("watdfs_cli_download return code ===== %d", ret);
             int fh_ret = open(cache_path, O_RDONLY);
             ret = stat(cache_path, statbuf);  // 文件已在本地存在，所以不会失败
@@ -1662,7 +1662,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
         if (get_flag(userdata, cache_path) == O_RDONLY) {
             // check freshness
             if (!is_fresh(userdata, path)) {
-                ret = download_to_client((struct file_state *)userdata, full_path, path); // 不可能失败，因为文件一定存在，并且以在server上以只读的形式打开
+                ret = download_to_client((struct file_state *)userdata, cache_path, path); // 不可能失败，因为文件一定存在，并且以在server上以只读的形式打开
                 // 已经打开的文件，fh没有从open_file里删掉，也没有可以关闭文件，相当于没有关闭，因此没必要重新打开
                 DLOG("watdfs_cli_download return code ===== %d", ret);
                 if(ret < 0){
