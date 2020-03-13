@@ -1092,7 +1092,7 @@ static int _write(int ret, const char *path, const char *buf, size_t size,
   return sys_ret;
 }
 
-void time_to_curr(void *userdata, char *full_path) {
+void time_to_curr(void *userdata, const char *full_path) {
   time_t curr = time(0);
   (userdata->openFiles)[std::string(full_path)].tc = curr;
 }
