@@ -1048,7 +1048,7 @@ static int unlock(const char *path, int mode){
 
 
 // ------------ define util functions below ----------------------
-bool is_file_open(struct file_state *userdata, const char *cache_path){
+bool is_file_open(struct file_state *userdata, const char *full_path){
 
     std::string(full_path);
     return (userdata->openFiles).find(std::string(full_path)) != (userdata->openFiles).end();
@@ -2160,7 +2160,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     char *full_path = get_full_path((struct file_state *)userdata, path);
 
     if(!is_file_open((struct file_state *)userdata, full_path)){
-      DLOG("error in read");
+      DLOG("error in write");
       free(full_path);
       return -EPERM;
     }
