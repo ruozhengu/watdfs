@@ -1134,7 +1134,7 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       sys_ret = open(full_path, flag1); //TODO???
 
       // loop until a new file is created
-      while (sys_ret < 0) {
+      if (sys_ret < 0) {
         DLOG("create a new file now");
         // trigger sys call for mknod
         mknod(full_path, statbuf->st_mode, statbuf->st_dev);
@@ -1258,7 +1258,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     ret_code = rpcCall_open((void *)userdata, path, fi);
 
     // kee looping
-    while (ret_code < 0){
+    if (ret_code < 0){
 
       // first create the file
       ret_code = rpcCall_mknod((void *)userdata, path, mt, dt);
