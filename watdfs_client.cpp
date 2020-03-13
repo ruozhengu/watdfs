@@ -1149,29 +1149,19 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       // step1: truncate local file
       rpc_ret = truncate(full_path, (off_t)size);
 
-      if (rpc_ret < 0){
-        DLOG("download error");
-        delete statbuf;
-        delete fi;
-        //unlock(path, RW_READ_LOCK);
-        return -errno;
-      }
+      if (rpc_ret < 0) fxn_ret = -errno;
+
 
       //DLOG(.*)
       // TODO???? ret_code = rpc_open(userdata, path, fi);
       // read the file from server
       char *buf = (char *) malloc(((off_t) size) * sizeof(char));
+      rpc_ret = rpcCall_open((void *)userdata, path, fi);
+      if (rpc_ret < 0) fxn_ret = rpc_ret;
 
       rpc_ret = rpcCall_read((void *)userdata, path, buf, size, 0, fi);
+      if (rpc_ret < 0) fxn_ret = rpc_ret;
 
-      if (rpc_ret < 0){
-          free(buf);
-          DLOG("download error");
-          delete fi;
-          delete statbuf;
-          //unlock(path, RW_READ_LOCK);
-          return rpc_ret;
-      }
 
       //DLOG(.*)
 
@@ -1206,23 +1196,12 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       //TODO??? STAT?
       DLOG("download: metadata updated");
       rpc_ret = rpcCall_release((void *)userdata, path, fi);
-      if(rpc_ret < 0){
-        DLOG("download error");
-        //unlock(path, RW_READ_LOCK);
-        free(buf);
-        delete statbuf;
-        return sys_ret;
-      }
+      if (rpc_ret < 0) fxn_ret = rpc_ret;
 
       // close file locally
       int ret_code = close(sys_ret);
-      if(ret_code < 0){
-        DLOG("download error");
-        //unlock(path, RW_READ_LOCK);
-        free(buf);
-        delete statbuf;
-        return -errno;
-      }
+      if(ret_code < 0) fxn_ret = -errno;
+
 
       //rpc_ret = unlock(path, RW_READ_LOCK);
 
@@ -1239,7 +1218,6 @@ static int download_to_client(struct file_state *userdata, const char *full_path
 
       free(buf);
       delete fi;
-
       delete statbuf;
       return fxn_ret;
     }
@@ -1632,7 +1610,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
     std::string p = std::string(full_path);
 
     // validate if file open, and prepare for downloading the data to client
-    if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
+    if (!is_file_open((struct file_state *)userdata, full_path)) {
       struct stat *statbuf_tmp = new struct stat;
       int ret_code = rpcCall_fgetattr(userdata, path, statbuf_tmp, fi);
       if (ret_code < 0) {
@@ -1752,7 +1730,6 @@ int watdfs_cli_open(void *userdata, const char *path,
     int flag1 = O_CREAT;
     // if alreadfy opened, error
     std::string p = std::string(full_path);
-
     // validate if file open, and prepare for downloading the data to client
     if(is_file_open((struct file_state *)userdata, full_path)){
       free(full_path);
@@ -1849,6 +1826,14 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       free(full_path);
       return -EPERM;
     }
+    int clientM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode;
+    if (clientM != O_RDONLY) {
+      int serverM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode;
+
+      fxn_ret = pread(serverM, buf, size, offset);
+      free(full_path);
+      return fxn_ret;
+    }
 
     int ret_code = freshness_check((struct file_state *)userdata, full_path, path);
     if (ret_code == 0) {
@@ -1858,16 +1843,11 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
     }
 
-    int server_mode = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode;
-    fxn_ret = pread(server_mode, buf, size, offset);
+    int serverM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode;
 
-    if (fxn_ret < 0){
-      DLOG("read failed...");
-      free(full_path);
-      return -errno;
-    }
-
+    fxn_ret = pread(serverM, buf, size, offset);
     free(full_path);
+
     return fxn_ret;
 }
 
@@ -1958,7 +1938,7 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
   struct stat *statbuf = new struct stat;
 
   std::string p = std::string(full_path);
-  if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
+  if (!is_file_open((struct file_state *)userdata, full_path)) {
     ret_code = rpcCall_getattr(userdata, path, statbuf);
     if (ret_code < 0) {
       fxn_ret = ret_code;
@@ -2037,7 +2017,7 @@ int watdfs_cli_utimens(void *userdata, const char *path,
   struct stat *statbuf = new struct stat;
   // check open
   std::string p = std::string(full_path);
-  if ((((struct file_state *)userdata)->openFiles).count(p) <= 0) {
+  if (!is_file_open((struct file_state *)userdata, full_path)) {
       ret_code = rpcCall_getattr((void *)userdata, path, statbuf);
       if(ret_code < 0) {
         free(full_path);
