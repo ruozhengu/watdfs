@@ -2004,57 +2004,131 @@ int file_open_load(void *userdata, const char * full_path, const char *path, str
   DLOG("open: new file is created and loaded into client");
   return fxn_ret;
 }
-
-int watdfs_cli_open(void *userdata, const char *path,
-                    struct fuse_file_info *fi) {
-
-    char *full_path = get_full_path((struct file_state *)userdata, path);
-    int flag1 = O_CREAT;
-    // if alreadfy opened, error
-    std::string p = std::string(full_path);
-    // validate if file open, and prepare for downloading the data to client
+int open_local_file(void *userdata, char *cache_path, int flags){
+    std::string s_cache_path(cache_path);
+    int ret;
     if(is_file_open((struct file_state *)userdata, full_path)){
-      DLOG("already open error");
-      free(full_path);
-      return -EMFILE;
+        DLOG("file is open on client, can't open again");
+        return -EMFILE;
     }
-
-    int ret_code = 0;
-    int fxn_ret = 0;
-
-    struct stat *statbuf = new struct stat;
-
-    // check whether file exists on server
-    ret_code = rpcCall_getattr(userdata, path, statbuf);
-
-    if (fi->flags == flag1 && ret_code < 0) {
-      fxn_ret = file_open_load(userdata, full_path, path, fi);
-    } else if (fi->flags != flag1 && ret_code < 0) {
-      fxn_ret = ret_code;
-    } else if (ret_code) {
-      ret_code = watdfs_cli_download(userdata, path);
-      fxn_ret = (ret_code < 0) ? ret_code : 0;
-    }
-
-    if (fxn_ret){
-      // sys call
-      ret_code = open(full_path, fi->flags);
-      if (ret_code < 0) {
-        free(full_path);
-        free(statbuf);
+    ret = open(cache_path, flags);
+    if(ret < 0){
+        DLOG("open local file fail");
         return -errno;
-      }
-      DLOG("open: record this file now");
-      // update metadata
-      struct fileMetadata newFile = {fi->flags, ret_code, time(0)};
-      (((struct file_state*)userdata)->openFiles)[std::string(full_path)] = newFile;
-      DLOG("CONFIRM: file opened and records: %d", (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode);
-      fxn_ret = 0;
+    }else{
+        struct file_state *user = (file_state *)userdata;
+        (user->openFiles)[s_cache_path].client_mode = flags;
+        (user->openFiles)[s_cache_path].server_mode = ret;
+        (user->openFiles)[s_cache_path].tc = time(0);
+        DLOG("open file and update metadata on client success");
+        return 0;
     }
-    free(full_path);
-    free(statbuf);
-    return fxn_ret;
 }
+int watdfs_cli_open(void *userdata, const char *path, struct fuse_file_info *fi){
+    struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
+    char *cache_path = get_full_path((struct file_state *)userdata, path);
+    int ret, fxn_ret = 0;
+
+    //check open
+    if(is_file_open((struct file_state *)userdata, full_path)){
+        fxn_ret = -EMFILE;
+    }else{
+        // check whether file exists on server
+        ret = rpcCall_getattr(userdata, path, stat_server);
+        if(ret < 0) {  // 文件在远端不存在
+            DLOG("file doesn't exist on server");
+            if(fi->flags != O_CREAT){     // 怎么查如果是O_CREAT | O_RD
+                fxn_ret = ret;
+                DLOG("don't allow to create a new file on server");
+            }else{
+                ret = rpcCall_open(userdata, path, fi);  // 远端既然不存在，用open新建不会报错
+                if(ret < 0){
+                    fxn_ret = ret;
+                }
+                ret = watdfs_cli_download(userdata, path);  // 已经打开了远端server，不能再一次打开（写操作矛盾），顺便打开本地
+                if(ret < 0){
+                    fxn_ret = ret;
+                }else{
+                    DLOG("create a new file and download from server");
+                }
+            }
+        }else {
+            ret = watdfs_cli_download(userdata, path);  // 打开本地文件
+            DLOG("watdfs_cli_download return code ===== %d", ret);
+            if(ret < 0){
+                fxn_ret = ret;
+            }
+        }
+    }
+
+    if(fxn_ret < 0){
+        free(stat_server);
+        free(cache_path);
+        return fxn_ret;
+    }else{
+        ret = open_local_file(userdata, cache_path, fi->flags);
+        if(ret < 0) {
+            fxn_ret = ret;
+        }
+        free(stat_server);
+        free(cache_path);
+        return fxn_ret;
+    }
+}
+// int watdfs_cli_open(void *userdata, const char *path,
+//                     struct fuse_file_info *fi) {
+//
+//     char *full_path = get_full_path((struct file_state *)userdata, path);
+//     int flag1 = O_CREAT;
+//     // if alreadfy opened, error
+//     std::string p = std::string(full_path);
+//     // validate if file open, and prepare for downloading the data to client
+//     if(is_file_open((struct file_state *)userdata, full_path)){
+//       DLOG("already open error");
+//       free(full_path);
+//       return -EMFILE;
+//     }
+//
+//     int ret_code = 0;
+//     int fxn_ret = 0;
+//
+//     struct stat *statbuf = new struct stat;
+//
+//     // check whether file exists on server
+//     ret_code = rpcCall_getattr(userdata, path, statbuf);
+//
+//     if (fi->flags == flag1 && ret_code < 0) {
+//       fxn_ret = file_open_load(userdata, full_path, path, fi);
+//     } else if (fi->flags != flag1 && ret_code < 0) {
+//       fxn_ret = ret_code;
+//     } else if (ret_code) {
+//       ret_code = watdfs_cli_download(userdata, path);
+//       fxn_ret = (ret_code < 0) ? ret_code : 0;
+//     }
+//
+//     if (fxn_ret){
+//       if(is_file_open((struct file_state *)userdata, full_path)){
+//         fxn_ret = -EMFILE;
+//       } else {
+//         // sys call
+//         ret_code = open(full_path, fi->flags);
+//         if (ret_code < 0) {
+//           free(full_path);
+//           free(statbuf);
+//           return -errno;
+//         }
+//         DLOG("open: record this file now");
+//         // update metadata
+//         struct fileMetadata newFile = {fi->flags, ret_code, time(0)};
+//         (((struct file_state*)userdata)->openFiles)[std::string(full_path)] = newFile;
+//         DLOG("CONFIRM: file opened and records: %d", (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode);
+//         fxn_ret = 0;
+//       }
+//     }
+//     free(full_path);
+//     free(statbuf);
+//     return fxn_ret;
+// }
 
 int watdfs_cli_release(void *userdata, const char *path,
                        struct fuse_file_info *fi) {
