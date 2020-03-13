@@ -1159,27 +1159,27 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       // TODO???? ret_code = rpc_open(userdata, path, fi);
       // read the file from server
       char *buf = (char *) malloc(((off_t) size) * sizeof(char));
-      int sys_ret = lock(path, RW_READ_LOCK);
-      // int sys_ret = 0;
-      if (sys_ret < 0){
-
-        DLOG("download lock acquire error");
-        return sys_ret;
-      }
+      // int sys_ret = lock(path, RW_READ_LOCK);
+      // // int sys_ret = 0;
+      // if (sys_ret < 0){
+      //
+      //   DLOG("download lock acquire error");
+      //   return sys_ret;
+      // }
       rpc_ret = rpcCall_open((void *)userdata, path, fi);
       if (rpc_ret < 0) fxn_ret = rpc_ret;
 
       rpc_ret = rpcCall_read((void *)userdata, path, buf, size, 0, fi);
       if (rpc_ret < 0) fxn_ret = rpc_ret;
-      rpc_ret = unlock(path, RW_READ_LOCK);
-
-      if (rpc_ret < 0){
-        DLOG("download error");
-        free(buf);
-        // delete ts;
-        delete statbuf;
-        return sys_ret;
-      }
+      // rpc_ret = unlock(path, RW_READ_LOCK);
+      //
+      // if (rpc_ret < 0){
+      //   DLOG("download error");
+      //   free(buf);
+      //   // delete ts;
+      //   delete statbuf;
+      //   return sys_ret;
+      // }
 
       //DLOG(.*)
 
@@ -1259,13 +1259,13 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     fi->flags = flag1;
 
     struct stat *statbuf = new struct stat;
-    int sys_ret = lock(path, RW_WRITE_LOCK);
-
-    if (sys_ret < 0){
-
-      DLOG("push: lock acquire error");
-      return sys_ret;
-    }
+    // int sys_ret = lock(path, RW_WRITE_LOCK);
+    //
+    // if (sys_ret < 0){
+    //
+    //   DLOG("push: lock acquire error");
+    //   return sys_ret;
+    // }
     int ret_code = stat(full_path, statbuf);
     if (ret_code < 0) DLOG("ret code < 0!!!");
 
@@ -1341,15 +1341,15 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
       DLOG("push error4");
       fxn_ret = -errno;
     }
-    ret_code = unlock(path, RW_WRITE_LOCK);
-
-    if (ret_code < 0){
-      DLOG("push error3");
-      free(buf);
-      // delete ts;
-      delete statbuf;
-      return sys_ret;
-    }
+    // ret_code = unlock(path, RW_WRITE_LOCK);
+    //
+    // if (ret_code < 0){
+    //   DLOG("push error3");
+    //   free(buf);
+    //   // delete ts;
+    //   delete statbuf;
+    //   return sys_ret;
+    // }
 
     // update metadata
     // target->client_mode = local_fh_retcode;// server
