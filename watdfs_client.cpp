@@ -1050,7 +1050,7 @@ static int unlock(const char *path, int mode){
 // ------------ define util functions below ----------------------
 bool is_file_open(struct file_state *userdata, const char *full_path){
 
-    std::string(full_path);
+    
     return (userdata->openFiles).find(std::string(full_path)) != (userdata->openFiles).end();
 }
 
