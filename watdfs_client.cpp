@@ -1316,7 +1316,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     ret_code = pread(sys_ret, buf, size, 0);
 
     if (ret_code < 0){
-      DLOG("push error");
+      DLOG("push error2");
       //unlock(path, RW_READ_LOCK);
       free(buf);
       delete statbuf;
@@ -1327,7 +1327,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     ret_code = rpcCall_truncate((void *)userdata, path, (off_t) size);
 
     if (ret_code < 0){
-      DLOG("push error");
+      DLOG("push error3");
       delete statbuf;
       delete fi;
       //unlock(path, RW_READ_LOCK);
@@ -1336,7 +1336,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
 
     ret_code = rpcCall_write((void*)userdata, path, buf, (off_t) size, 0, fi);
     if(ret_code < 0){
-      DLOG("push error");
+      DLOG("push error4");
       delete statbuf;
       delete fi;
       //unlock(path, RW_READ_LOCK);
@@ -1358,7 +1358,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     // update the timestamps of a file by calling utimensat
     ret_code = rpcCall_utimens((void *)userdata, path, ts);
     if (ret_code < 0) {
-      DLOG("push error1");
+      DLOG("push error5");
       delete statbuf;
       delete fi;
       //unlock(path, RW_READ_LOCK);
@@ -1367,7 +1367,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
 
     ret_code = rpcCall_getattr((void *)userdata, path, statbuf);
     if (ret_code < 0) {
-      DLOG("push error2");
+      DLOG("push error6");
       delete statbuf;
       delete fi;
       //unlock(path, RW_READ_LOCK);
