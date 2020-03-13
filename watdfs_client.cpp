@@ -1983,7 +1983,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
       else fxn_ret = watdfs_cli_upload(userdata, path);
       fxn_ret = fxn_ret < 0 ? fxn_ret : 0;
     } else {
-      int fl = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode;
+      int fl = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode & O_ACCMODE;
       fxn_ret = mknod_update(userdata, full_path, path, fl, mode, dev);
     }
 
@@ -2113,7 +2113,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       free(full_path);
       return -EPERM;
     }
-    int clientM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode;
+    int clientM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode & O_ACCMODE;
     if (clientM != O_RDONLY) {
       int serverM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode;
 
@@ -2285,10 +2285,10 @@ int watdfs_cli_truncate(void *userdata, const char *path, off_t newsize) {
       DLOG("error in truncate");
       return fxn_ret;
     }
-    int clientM = (((struct file_state *)userdata)->openFiles)[std::string(full_path)].client_mode;
+    int clientM = (((struct file_state *)userdata)->openFiles)[std::string(full_path)].client_mode & O_ACCMODE;
     fxn_ret = download_open(userdata, clientM, full_path, path, newsize);
   } else {
-    int flag = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode;
+    int flag = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode & O_ACCMODE;
     fxn_ret = truncate_update(userdata, flag, full_path, path, newsize);
 
   }
@@ -2391,7 +2391,7 @@ int watdfs_cli_utimens(void *userdata, const char *path,
         return -errno;
       }
   } else {
-    int flag_client = (((struct file_state *)userdata)->openFiles)[std::string(full_path)].client_mode;
+    int flag_client = (((struct file_state *)userdata)->openFiles)[std::string(full_path)].client_mode & O_ACCMODE;
     fxn_ret = utimens_update(userdata, flag, full_path, path, ts);
   }
 
