@@ -1092,9 +1092,9 @@ static int _write(int ret, const char *path, const char *buf, size_t size,
   return sys_ret;
 }
 
-void time_to_curr(void *userdata, const char *full_path) {
+void time_to_curr(void * userdata, const char * full_path) {
   time_t curr = time(0);
-  (userdata->openFiles)[std::string(full_path)].tc = curr;
+  (((file_state*)userdata)->openFiles)[std::string(full_path)].tc = curr;
 }
 
 static int download_to_client(struct file_state *userdata, const char *full_path,
@@ -1697,7 +1697,7 @@ bool is_fresh(void *userdata, const char *path){    // file is confirmed on both
         }
 
         if(stat_client -> st_mtime == stat_server->st_mtime){ // modify is the same on both of client and server
-            time_to_curr(userdata, full_path);
+            time_to_curr(userdata, cache_path);
             free(stat_client);
             free(stat_server);
             DLOG("【T_server = T_client, fresh】");
