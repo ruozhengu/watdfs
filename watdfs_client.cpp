@@ -1832,7 +1832,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev){
             fxn_ret = -errno;
         }else{    // 在本地不存在，可能在server上存在，所以可能也会失败，这个判断写在upload里面了
             // 所以应该先用rpc_getattr测一下，我这里需要待验证mknod的功能后再补充
-            ret = push_to_server(userdata, cache_path path);
+            ret = push_to_server((file_state *)userdata, cache_path path);
             DLOG("watdfs_cli_upload return code ===== %d", ret);
             if(ret < 0){
                 fxn_ret = ret;   // no write permission on server
@@ -1850,7 +1850,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev){
                 fxn_ret = -errno;
             }else{
                 if(!is_fresh(userdata, path)){
-                    ret = push_to_server(userdata, cache_path, path);
+                    ret = push_to_server((file_state *)userdata, cache_path, path);
                     DLOG("watdfs_cli_upload return code ===== %d", ret);
                     if(ret < 0){
                         fxn_ret = ret;
