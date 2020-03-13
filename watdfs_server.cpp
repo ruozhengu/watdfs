@@ -177,7 +177,7 @@ int watdfs_open(int *argTypes, void **args) {
     int sys_ret = 0;
 
     // A3:
-    bool is_file_open = fileMutex.find(std::string(short_path) != fileMutex.end();
+    bool is_file_open = fileMutex.find(std::string(short_path)) != fileMutex.end();
 
     if (!is_file_open) {
       // init
