@@ -27,7 +27,7 @@
 #include "rw_lock.h"
 #include <unistd.h>
 #include <cstdint>
-#include <rw_lock.h>
+#include "rw_lock.h"
 
 #ifdef __cplusplus
 // This is for backward compatibility, but all your code *must* be in C++.
