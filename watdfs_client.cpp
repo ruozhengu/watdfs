@@ -1484,7 +1484,11 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
     // Return pointer to global state data.
     return (void *) userdata;
 }
-
+int get_flag(void *userdata, char *cache_path){
+    struct file_state *user = (struct file_state *)userdata;
+    string s_cache_path(cache_path);
+    return (user->openFiles)[s_cache_path].client_mode & O_ACCMODE;
+}
 //TODO: might need to free path as well
 void watdfs_cli_destroy(void *userdata) {
 
@@ -1502,93 +1506,185 @@ void watdfs_cli_destroy(void *userdata) {
     // delete userdata;
     userdata = NULL;
 }
+void reset_tc(void *userdata, char *cache_path){
+    struct file_state *user = (file_state *)userdata;
+    string s_cache_path(cache_path);
+    (user->openFiles)[s_cache_path].tc = time(0);
+
+    //cout << "【 tc for this filel is :" << get_tc(userdata, cache_path) << " 】"<< endl;
+}
+bool is_fresh(void *userdata, const char *path){    // file is confirmed on both of client and server
+    //cout << "*********** current time is:  " << time(0) << "  *************"<< std::endl;
+    char *cache_path = get_full_path((struct file_state*)userdata, path);
+    struct file_state *user = (file_state *)userdata;
+    string s_cache_path(cache_path);
+    int ret;
+    if(time(0)-(user->openFiles)[s_cache_path].tc < user->t){     // cache time is less then interval time, then it's fresh
+        //cout << "【T - tc = " << time(0)-(user->open_file)[s_cache_path].tc << "】"<< std::endl;
+        DLOG("【T - tc < t, fresh】");
+        return true;
+    }else{
+        struct stat *stat_client = (struct stat *)malloc(sizeof(struct stat));
+        struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
+
+        ret = rpc_getattr(userdata, path, stat_server);
+        if(ret < 0){
+            DLOG("get attr on server fail");
+        }
+        ret = stat(cache_path, stat_client);
+        if(ret < 0){
+            DLOG("get attr on client fail");
+        }
+
+        if(stat_client -> st_mtime == stat_server->st_mtime){ // modify is the same on both of client and server
+            reset_tc(userdata, cache_path);
+            free(stat_client);
+            free(stat_server);
+            DLOG("【T_server = T_client, fresh】");
+            return true;
+        }
+    }
+    DLOG("【The file is not fresh】");
+    return false;
+}
 
 // GET FILE ATTRIBUTES
 int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
-    int flag1 = O_RDONLY;
-    int flag2 = O_ACCMODE;
-    int fxn_ret = 0;
-    int sys_ret = 0;
+    // int flag1 = O_RDONLY;
+    // int flag2 = O_ACCMODE;
+    // int fxn_ret = 0;
+    // int sys_ret = 0;
+    //
+    // DLOG("getattr triggered");
+    //
+    // char *full_path = get_full_path((struct file_state *)userdata, path);
+    // std::string p = std::string(full_path);
+    //
+    // // validate if file open, and prepare for downloading the data to client
+    // if (!is_file_open((struct file_state *)userdata, full_path)) {
+    //   DLOG("getattr triggered111");
+    //   struct stat *statbuf_tmp = new struct stat;
+    //   DLOG("getattr triggered1111");
+    //   int ret_code = rpcCall_getattr(userdata, path, statbuf_tmp);
+    //   DLOG("getattr triggered111111");
+    //   if (ret_code < 0) {
+    //     DLOG("error in getattr (1)");
+    //     free(statbuf_tmp);
+    //     memset(statbuf, 0, sizeof(struct stat));
+    //     free(full_path);
+    //     fxn_ret = ret_code;
+    //     return fxn_ret;
+    //   }
+    //   DLOG("getattr triggered1");
+    //   // download data to client
+    //   ret_code = download_to_client((struct file_state*)userdata, full_path, path);
+    //   sys_ret = open(full_path, flag1);
+    //   // update metadata to clients.
+    //   ret_code = stat(full_path, statbuf);
+    //   //TODO: need to release?
+    //   //close local file
+    //   fxn_ret = close(sys_ret);
+    //   if(fxn_ret < 0){
+    //     DLOG("error in getattr (2)");
+    //     free(statbuf_tmp);
+    //     memset(statbuf, 0, sizeof(struct stat));
+    //     free(full_path);
+    //     fxn_ret = -errno;
+    //     return fxn_ret;
+    //   }
+    //   delete statbuf_tmp;
+    // } else {
+    //   DLOG("getattr triggered5");
+    //   struct stat *statbuf_tmp = new struct stat;
+    //   //read only the file, file already opened
+    //   if (flag1 == (((struct file_state*)userdata)->openFiles)[p].client_mode &
+    //         flag2 && !freshness_check((struct file_state*)userdata, full_path, path)) {
+    //     // read only, check freshness, download file
+    //     DLOG("stat downloading file");
+    //
+    //     int ret_code = download_to_client((struct file_state*)userdata, full_path, path);
+    //
+    //     if (ret_code < 0) {
+    //       DLOG("error in getattr (3)");
+    //       memset(statbuf, 0, sizeof(struct stat));
+    //       free(full_path);
+    //       free(statbuf_tmp);
+    //       fxn_ret = ret_code;
+    //       return fxn_ret;
+    //     }
+    //     time_t curr_time = time(0);
+    //     ((((struct file_state*)userdata)->openFiles)[p]).tc = curr_time;
+    //   }
+    //   DLOG("getattr triggered6");
+    //   // sys call to stat
+    //   int ret_code = stat(full_path, statbuf);
+    //   if(ret_code < 0){
+    //     DLOG("error in getattr (4)");
+    //
+    //     memset(statbuf, 0, sizeof(struct stat));
+    //     free(full_path);
+    //     free(statbuf_tmp);
+    //     fxn_ret = -errno;
+    //     return fxn_ret;
+    //   }
+    //   // TODO: need to close the file?
+    //   delete statbuf_tmp;
+    // }
+    // free(full_path);
+    //
+    // DLOG("getattr finished");
+    // // FINAL RETURN THE HANDLER CODE
+    // return fxn_ret;
+    struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
+    int ret, fxn_ret = 0;
+    char *cache_path = get_full_path(userdata, path);
 
-    DLOG("getattr triggered");
-
-    char *full_path = get_full_path((struct file_state *)userdata, path);
-    std::string p = std::string(full_path);
-
-    // validate if file open, and prepare for downloading the data to client
-    if (!is_file_open((struct file_state *)userdata, full_path)) {
-      DLOG("getattr triggered111");
-      struct stat *statbuf_tmp = new struct stat;
-      DLOG("getattr triggered1111");
-      int ret_code = rpcCall_getattr(userdata, path, statbuf_tmp);
-      DLOG("getattr triggered111111");
-      if (ret_code < 0) {
-        DLOG("error in getattr (1)");
-        free(statbuf_tmp);
-        memset(statbuf, 0, sizeof(struct stat));
-        free(full_path);
-        fxn_ret = ret_code;
-        return fxn_ret;
-      }
-      DLOG("getattr triggered1");
-      // download data to client
-      ret_code = download_to_client((struct file_state*)userdata, full_path, path);
-      sys_ret = open(full_path, flag1);
-      // update metadata to clients.
-      ret_code = stat(full_path, statbuf);
-      //TODO: need to release?
-      //close local file
-      fxn_ret = close(sys_ret);
-      if(fxn_ret < 0){
-        DLOG("error in getattr (2)");
-        free(statbuf_tmp);
-        memset(statbuf, 0, sizeof(struct stat));
-        free(full_path);
-        fxn_ret = -errno;
-        return fxn_ret;
-      }
-      delete statbuf_tmp;
-    } else {
-      DLOG("getattr triggered5");
-      struct stat *statbuf_tmp = new struct stat;
-      //read only the file, file already opened
-      if (flag1 == (((struct file_state*)userdata)->openFiles)[p].client_mode &
-            flag2 && !freshness_check((struct file_state*)userdata, full_path, path)) {
-        // read only, check freshness, download file
-        DLOG("stat downloading file");
-
-        int ret_code = download_to_client((struct file_state*)userdata, full_path, path);
-
-        if (ret_code < 0) {
-          DLOG("error in getattr (3)");
-          memset(statbuf, 0, sizeof(struct stat));
-          free(full_path);
-          free(statbuf_tmp);
-          fxn_ret = ret_code;
-          return fxn_ret;
+    // check open
+    if(!is_file_open((struct file_state *)userdata, cache_path)) {   // if file doesn't open, then transfer file from server to client
+        ret = rpcCall_getattr(userdata, path, stat_server);
+        if(ret < 0){   // don't exist on server
+            DLOG("file doesn't on server");
+            fxn_ret = ret;
+        }else{
+            ret = download_to_client((struct file_state *)userdata, path);
+            DLOG("watdfs_cli_download return code ===== %d", ret);
+            int fh_ret = open(cache_path, O_RDONLY);
+            ret = stat(cache_path, statbuf);  // 文件已在本地存在，所以不会失败
+            ret = close(fh_ret);
+            if(ret < 0){
+                fxn_ret = -errno;
+            }
         }
-        time_t curr_time = time(0);
-        ((((struct file_state*)userdata)->openFiles)[p]).tc = curr_time;
-      }
-      DLOG("getattr triggered6");
-      // sys call to stat
-      int ret_code = stat(full_path, statbuf);
-      if(ret_code < 0){
-        DLOG("error in getattr (4)");
-
-        memset(statbuf, 0, sizeof(struct stat));
-        free(full_path);
-        free(statbuf_tmp);
-        fxn_ret = -errno;
-        return fxn_ret;
-      }
-      // TODO: need to close the file?
-      delete statbuf_tmp;
+    }else {
+        // check file flag
+        // file open in read mode must check fresh, in write mode can't check fresh
+        if (get_flag(userdata, cache_path) == O_RDONLY) {
+            // check freshness
+            if (!is_fresh(userdata, path)) {
+                ret = download_to_client((struct file_state *)userdata, path); // 不可能失败，因为文件一定存在，并且以在server上以只读的形式打开
+                // 已经打开的文件，fh没有从open_file里删掉，也没有可以关闭文件，相当于没有关闭，因此没必要重新打开
+                DLOG("watdfs_cli_download return code ===== %d", ret);
+                if(ret < 0){
+                    fxn_ret = ret;
+                }else{
+                    reset_tc(userdata, cache_path);
+                }
+            }
+        }
+        ret = stat(cache_path, statbuf);
+        DLOG("stat return code ===== %d", ret);
+        if(ret < 0){
+            fxn_ret = -errno;
+        }
     }
-    free(full_path);
 
-    DLOG("getattr finished");
-    // FINAL RETURN THE HANDLER CODE
+    if(fxn_ret < 0){
+        DLOG("watdfs_cli_getattr fail");
+        memset(statbuf, 0, sizeof(struct stat));
+    }
+
+    free(stat_server);
+    free(cache_path);
     return fxn_ret;
 }
 
