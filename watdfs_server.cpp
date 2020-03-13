@@ -29,7 +29,7 @@ struct file_critical_section{
 };
 
 
-std::map<std::string, struct file_critical_section> filesMutex;
+std::map<std::string, struct file_critical_section> fileMutex;
 
 
 
@@ -181,7 +181,7 @@ int watdfs_open(int *argTypes, void **args) {
 
     if (!is_file_open) {
       // init
-      struct fileMetadata newMeta ;
+      struct file_critical_section newMeta ;
       newMeta->lock = new rw_lock_t; // to be free
       fileMutex[std::string(short_path)] = newMeta;
       rw_lock_init((fileMutex[std::string(short_path)]).lock);
