@@ -2007,7 +2007,7 @@ int file_open_load(void *userdata, const char * full_path, const char *path, str
 int open_local_file(void *userdata, char *cache_path, int flags){
     std::string s_cache_path(cache_path);
     int ret;
-    if(is_file_open((struct file_state *)userdata, full_path)){
+    if(is_file_open((struct file_state *)userdata, cache_path)){
         DLOG("file is open on client, can't open again");
         return -EMFILE;
     }
@@ -2030,7 +2030,7 @@ int watdfs_cli_open(void *userdata, const char *path, struct fuse_file_info *fi)
     int ret, fxn_ret = 0;
 
     //check open
-    if(is_file_open((struct file_state *)userdata, full_path)){
+    if(is_file_open((struct file_state *)userdata, cache_path)){
         fxn_ret = -EMFILE;
     }else{
         // check whether file exists on server
