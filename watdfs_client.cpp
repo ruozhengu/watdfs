@@ -1548,7 +1548,17 @@ bool is_fresh(void *userdata, const char *path){    // file is confirmed on both
     DLOG("【The file is not fresh】");
     return false;
 }
-
+bool is_open(void *userdata, char *cache_path){
+    struct file_state *user = (file_state *)userdata;
+    std::string s_cache_path(cache_path);
+    if((user->openFiles).find(s_cache_path) != (user->openFiles).end()){
+        DLOG("now file is open");
+        return true;
+    }else{
+        DLOG("now file is close");
+        return false;
+    }
+}
 // GET FILE ATTRIBUTES
 int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     // int flag1 = O_RDONLY;
@@ -1641,7 +1651,8 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     char *cache_path = get_full_path((file_state *)userdata, path);
 
     // check open
-    if(!is_file_open((struct file_state *)userdata, cache_path)) {   // if file doesn't open, then transfer file from server to client
+    if(!is_open(userdata, cache_path)) {   // if file doesn't open, then transfer file from server to client
+        DLOG("file not open");
         ret = rpcCall_getattr(userdata, path, stat_server);
         if(ret < 0){   // don't exist on server
             DLOG("file doesn't on server");
@@ -1780,36 +1791,83 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
     return fxn_ret;
 }
 
-// CREATE, OPEN AND CLOSE
-int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
+// // CREATE, OPEN AND CLOSE
+// int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
+//
+//     DLOG("NEW: Received mknod call from local client...");
+//
+//     char *full_path = get_full_path((struct file_state *)userdata, path);
+//
+//     //TODO???: chekc if file is open
+//     int fxn_ret = 0;
+//     // creates a file system node using mknod sys call
+//     int sys_ret = mknod(full_path, mode, dev);
+//
+//     if (sys_ret < 0) {
+//       DLOG("fail to create file ...");
+//       fxn_ret = -EINVAL;
+//     } else {
+//       // server has it while client does not
+//       push_to_server((struct file_state*)userdata, full_path, path);
+//       fxn_ret = sys_ret;
+//     }
+//
+//     // Clean up the memory we have allocated.
+//
+//     free(full_path);
+//
+//     DLOG("DONE: mknod: return code is %d", fxn_ret);
+//
+//     return fxn_ret;
+// }
+int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev){
+    char *cache_path = get_full_path(userdata, path);
+    int ret, fxn_ret = 0;
 
-    DLOG("NEW: Received mknod call from local client...");
-
-    char *full_path = get_full_path((struct file_state *)userdata, path);
-
-    //TODO???: chekc if file is open
-    int fxn_ret = 0;
-    // creates a file system node using mknod sys call
-    int sys_ret = mknod(full_path, mode, dev);
-
-    if (sys_ret < 0) {
-      DLOG("fail to create file ...");
-      fxn_ret = -EINVAL;
-    } else {
-      // server has it while client does not
-      push_to_server((struct file_state*)userdata, full_path, path);
-      fxn_ret = sys_ret;
+    //check open
+    if(!is_open(userdata, cache_path)){
+        ret = mknod(cache_path, mode, dev);  // 在本地存在，那么在server上肯定存在，一定失败
+        if(ret < 0){
+            DLOG("can't create file, file exist on client");
+            fxn_ret = -errno;
+        }else{    // 在本地不存在，可能在server上存在，所以可能也会失败，这个判断写在upload里面了
+            // 所以应该先用rpc_getattr测一下，我这里需要待验证mknod的功能后再补充
+            ret = push_to_server(userdata, full_path path);
+            DLOG("watdfs_cli_upload return code ===== %d", ret);
+            if(ret < 0){
+                fxn_ret = ret;   // no write permission on server
+            }
+        }
+    }else{
+        // check open mode
+        if(get_flag(userdata, cache_path) == O_RDONLY){
+            DLOG("can't do mknod under read mode");
+            fxn_ret = -EMFILE;
+        }else{   // 测试用，实际上在文件打开的状态下一定会失败，？如果打开了，直接返回错误
+            ret = mknod(cache_path, mode, dev);
+            if(ret < 0){
+                DLOG("can't create file, file exist on client");
+                fxn_ret = -errno;
+            }else{
+                if(!is_fresh(userdata, path)){
+                    ret = push_to_server(userdata, full_path, path);
+                    DLOG("watdfs_cli_upload return code ===== %d", ret);
+                    if(ret < 0){
+                        fxn_ret = ret;
+                    }else{
+                        reset_tc(userdata, cache_path);
+                    }
+                }
+            }
+        }
     }
 
-    // Clean up the memory we have allocated.
-
-    free(full_path);
-
-    DLOG("DONE: mknod: return code is %d", fxn_ret);
-
+    if(fxn_ret < 0){
+        DLOG("watdfs_cli_mknod fail");
+    }
+    free(cache_path);
     return fxn_ret;
 }
-
 
 int file_open_load(void *userdata, const char * full_path, const char *path, struct fuse_file_info *fi) {
   int ret_code = rpcCall_open(userdata, path, fi);
