@@ -2024,111 +2024,69 @@ int open_local_file(void *userdata, char *cache_path, int flags){
         return 0;
     }
 }
-int watdfs_cli_open(void *userdata, const char *path, struct fuse_file_info *fi){
-    struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
-    char *cache_path = get_full_path((struct file_state *)userdata, path);
-    int ret, fxn_ret = 0;
 
-    //check open
-    if(is_file_open((struct file_state *)userdata, cache_path)){
-        fxn_ret = -EMFILE;
-    }else{
-        // check whether file exists on server
-        ret = rpcCall_getattr(userdata, path, stat_server);
-        if(ret < 0) {  // 文件在远端不存在
-            DLOG("file doesn't exist on server");
-            if(fi->flags != O_CREAT){     // 怎么查如果是O_CREAT | O_RD
-                fxn_ret = ret;
-                DLOG("don't allow to create a new file on server");
-            }else{
-                ret = rpcCall_open(userdata, path, fi);  // 远端既然不存在，用open新建不会报错
-                if(ret < 0){
-                    fxn_ret = ret;
-                }
-                ret = watdfs_cli_download(userdata, path);  // 已经打开了远端server，不能再一次打开（写操作矛盾），顺便打开本地
-                if(ret < 0){
-                    fxn_ret = ret;
-                }else{
-                    DLOG("create a new file and download from server");
-                }
-            }
-        }else {
-            ret = watdfs_cli_download(userdata, path);  // 打开本地文件
-            DLOG("watdfs_cli_download return code ===== %d", ret);
-            if(ret < 0){
-                fxn_ret = ret;
-            }
-        }
-    }
-
-    if(fxn_ret < 0){
-        free(stat_server);
-        free(cache_path);
-        return fxn_ret;
-    }else{
-        ret = open_local_file(userdata, cache_path, fi->flags);
-        if(ret < 0) {
-            fxn_ret = ret;
-        }
-        free(stat_server);
-        free(cache_path);
-        return fxn_ret;
-    }
+int open_cond(void *userdata, int code, const char *path, struct fuse_file_info *fi, int f) {
+  int fxn_ret = 0;
+  if (fi->flags != f) {
+    return code;
+  }
+  int ret_code = rpcCall_open(userdata, path, fi);
+  if (ret_code < 0) fxn_ret = ret_code;
+  ret_code = watdfs_cli_download(userdata, path);
+  if (ret_code < 0) return ret_code;
+  else return fxn_ret;
 }
-// int watdfs_cli_open(void *userdata, const char *path,
-//                     struct fuse_file_info *fi) {
-//
-//     char *full_path = get_full_path((struct file_state *)userdata, path);
-//     int flag1 = O_CREAT;
-//     // if alreadfy opened, error
-//     std::string p = std::string(full_path);
-//     // validate if file open, and prepare for downloading the data to client
-//     if(is_file_open((struct file_state *)userdata, full_path)){
-//       DLOG("already open error");
-//       free(full_path);
-//       return -EMFILE;
-//     }
-//
-//     int ret_code = 0;
-//     int fxn_ret = 0;
-//
-//     struct stat *statbuf = new struct stat;
-//
-//     // check whether file exists on server
-//     ret_code = rpcCall_getattr(userdata, path, statbuf);
-//
-//     if (fi->flags == flag1 && ret_code < 0) {
-//       fxn_ret = file_open_load(userdata, full_path, path, fi);
-//     } else if (fi->flags != flag1 && ret_code < 0) {
-//       fxn_ret = ret_code;
-//     } else if (ret_code) {
-//       ret_code = watdfs_cli_download(userdata, path);
-//       fxn_ret = (ret_code < 0) ? ret_code : 0;
-//     }
-//
-//     if (fxn_ret){
-//       if(is_file_open((struct file_state *)userdata, full_path)){
-//         fxn_ret = -EMFILE;
-//       } else {
-//         // sys call
-//         ret_code = open(full_path, fi->flags);
-//         if (ret_code < 0) {
-//           free(full_path);
-//           free(statbuf);
-//           return -errno;
-//         }
-//         DLOG("open: record this file now");
-//         // update metadata
-//         struct fileMetadata newFile = {fi->flags, ret_code, time(0)};
-//         (((struct file_state*)userdata)->openFiles)[std::string(full_path)] = newFile;
-//         DLOG("CONFIRM: file opened and records: %d", (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode);
-//         fxn_ret = 0;
-//       }
-//     }
-//     free(full_path);
-//     free(statbuf);
-//     return fxn_ret;
-// }
+
+int watdfs_cli_open(void *userdata, const char *path,
+                    struct fuse_file_info *fi) {
+
+    char *full_path = get_full_path((struct file_state *)userdata, path);
+    int flag1 = O_CREAT;
+    // if alreadfy opened, error
+    std::string p = std::string(full_path);
+    // validate if file open, and prepare for downloading the data to client
+    if(is_file_open((struct file_state *)userdata, full_path)){
+      DLOG("already open error");
+      free(full_path);
+      return -EMFILE;
+    }
+
+    int ret_code = 0;
+    int fxn_ret = 0;
+
+    struct stat *statbuf = new struct stat;
+
+    // check whether file exists on server
+    ret_code = rpcCall_getattr(userdata, path, statbuf);
+
+    if (ret_code < 0) {
+      fxn_ret = open_cond(userdata, ret_code, path, fi, O_CREAT);
+    } else {
+      ret_code = watdfs_cli_download(userdata, path);
+      if (ret_code < 0) fxn_ret = ret_code;
+    }
+
+    if (fxn_ret){
+      // record the file on the map
+      ret_code = open(full_path, fi->flags);
+      if (ret_code < 0) {
+        free(full_path);
+        free(statbuf);
+        return -errno;
+      }
+      DLOG("open: record this file now");
+      // update metadata
+      struct fileMetadata newFile = {fi->flags, ret_code, time(0)};
+      (((struct file_state*)userdata)->openFiles)[std::string(full_path)] = newFile;
+      fxn_ret = 0;
+    } else {
+      fxn_ret = -errno;
+    }
+
+    free(full_path);
+    free(statbuf);
+    return fxn_ret;
+}
 
 int watdfs_cli_release(void *userdata, const char *path,
                        struct fuse_file_info *fi) {
@@ -2255,59 +2213,6 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
     fxn_ret = fxn_ret < 0 ? fxn_ret : ret_code;
     return fxn_ret;
 }
-// int get_flag(void *userdata, char *cache_path){
-//     return (((file_state*)userdata)->openFiles)[std::string(cache_path)].client_mode & O_ACCMODE;
-// }
-//
-// int get_fh(void *userdata, char *cache_path){
-//     return (((file_state*)userdata)->openFiles)[std::string(cache_path)].server_mode;
-//
-// }
-// int watdfs_cli_write(void *userdata, const char *path, const char *buf,
-//                      size_t size, off_t offset, struct fuse_file_info *fi){
-//     // watdfs_cli_open has been called before this call
-//     // file has been opened on client
-//     // open file on server
-//     struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
-//     char *cache_path = get_full_path((struct file_state *)userdata, path);
-//     int ret, write_ret = 0, fxn_ret = 0;
-//
-//     // check open
-//     if(!is_file_open((file_state*)userdata, cache_path)){
-//       DLOG("weird");
-//         return -EPERM;
-//     }else{
-//         if(get_flag(userdata, cache_path) == O_RDONLY){
-//           DLOG("weird2");
-//             fxn_ret = -EMFILE;
-//         }else{
-//             write_ret = pwrite(get_fh(userdata, cache_path), buf, size, offset);
-//             DLOG("write %d characters", write_ret);
-//             DLOG("write to buf in watdfs_cli_write is %s", buf);
-//             if(write_ret < 0){
-//                 DLOG("watdfs_cli_write fail");
-//                 fxn_ret = -errno;
-//             }else{
-//                 DLOG("write from buf to client success, start to check fresh");
-//                 if(!is_fresh(userdata, path)){
-//                     ret = watdfs_cli_upload(userdata, path);
-//                     time_to_curr(userdata, cache_path);
-//                     if(ret < 0){
-//                         fxn_ret = ret;
-//                     }
-//                 }
-//             }
-//         }
-//     }
-//
-//     free(stat_server);
-//     free(cache_path);
-//     if(fxn_ret < 0){
-//         return fxn_ret;
-//     }else{
-//         return write_ret;
-//     }
-// }
 
 int truncate_update(void *userdata, int flag, const char* full_path, const char* path, off_t newsize) {
   if (flag != O_RDONLY) {
