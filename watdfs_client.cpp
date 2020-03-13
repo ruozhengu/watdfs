@@ -2110,7 +2110,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
 }
 
 void check_fresh_then_load(void *userdata, const char * full_path, const char *path, int *code) {
-  int fresh_or_not = freshness_check((file_state*)userdata, full_name, name);
+  int fresh_or_not = freshness_check((file_state*)userdata, full_path, path);
   int fxn_ret = 0;
   if (fresh_or_not == 0) {
     fxn_ret = watdfs_cli_upload(userdata, path);
