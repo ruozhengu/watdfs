@@ -7,7 +7,7 @@
 #include "rpc.h"
 #include "debug.h"
 INIT_LOG
-
+#include "rw_lock.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
