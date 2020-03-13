@@ -2189,6 +2189,7 @@ int truncate_update(void *userdata, int flag, const char* full_path, const char*
       return -errno;
     }
     if (!is_fresh(userdata, path)) {
+      ret_code = watdfs_cli_upload(userdata, path);
       // set time to current
       (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
       if (ret_code < 0) return ret_code;
