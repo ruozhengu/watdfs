@@ -2072,7 +2072,7 @@ int watdfs_cli_open(void *userdata, const char *path,
       }
     }
 
-    if (fxn_ret){
+    if (fxn_ret >= 0){
       // record the file on the map
       ret_code = open(full_path, fi->flags);
       if (ret_code < 0) {
