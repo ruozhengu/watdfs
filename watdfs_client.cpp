@@ -1484,11 +1484,7 @@ void *watdfs_cli_init(struct fuse_conn_info *conn, const char *path_to_cache,
     // Return pointer to global state data.
     return (void *) userdata;
 }
-int get_flag(void *userdata, char *cache_path){
-    struct file_state *user = (struct file_state *)userdata;
-    string s_cache_path(cache_path);
-    return (user->openFiles)[s_cache_path].client_mode & O_ACCMODE;
-}
+
 //TODO: might need to free path as well
 void watdfs_cli_destroy(void *userdata) {
 
@@ -1506,9 +1502,14 @@ void watdfs_cli_destroy(void *userdata) {
     // delete userdata;
     userdata = NULL;
 }
+int get_flag(void *userdata, char *cache_path){
+    struct file_state *user = (struct file_state *)userdata;
+    std::string s_cache_path(cache_path);
+    return (user->openFiles)[s_cache_path].client_mode & O_ACCMODE;
+}
 void reset_tc(void *userdata, char *cache_path){
     struct file_state *user = (file_state *)userdata;
-    string s_cache_path(cache_path);
+    std::string s_cache_path(cache_path);
     (user->openFiles)[s_cache_path].tc = time(0);
 
     //cout << "【 tc for this filel is :" << get_tc(userdata, cache_path) << " 】"<< endl;
@@ -1517,9 +1518,9 @@ bool is_fresh(void *userdata, const char *path){    // file is confirmed on both
     //cout << "*********** current time is:  " << time(0) << "  *************"<< std::endl;
     char *cache_path = get_full_path((struct file_state*)userdata, path);
     struct file_state *user = (file_state *)userdata;
-    string s_cache_path(cache_path);
+    std::string s_cache_path(cache_path);
     int ret;
-    if(time(0)-(user->openFiles)[s_cache_path].tc < user->t){     // cache time is less then interval time, then it's fresh
+    if(time(0)-(user->openFiles)[s_cache_path].tc < user->cacheInterval){     // cache time is less then interval time, then it's fresh
         //cout << "【T - tc = " << time(0)-(user->open_file)[s_cache_path].tc << "】"<< std::endl;
         DLOG("【T - tc < t, fresh】");
         return true;
@@ -1527,7 +1528,7 @@ bool is_fresh(void *userdata, const char *path){    // file is confirmed on both
         struct stat *stat_client = (struct stat *)malloc(sizeof(struct stat));
         struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
 
-        ret = rpc_getattr(userdata, path, stat_server);
+        ret = rpcCall_getattr(userdata, path, stat_server);
         if(ret < 0){
             DLOG("get attr on server fail");
         }
@@ -1637,7 +1638,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
     // return fxn_ret;
     struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
     int ret, fxn_ret = 0;
-    char *cache_path = get_full_path(userdata, path);
+    char *cache_path = get_full_path((file_state *)userdata, path);
 
     // check open
     if(!is_file_open((struct file_state *)userdata, cache_path)) {   // if file doesn't open, then transfer file from server to client
@@ -1646,7 +1647,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
             DLOG("file doesn't on server");
             fxn_ret = ret;
         }else{
-            ret = download_to_client((struct file_state *)userdata, path);
+            ret = download_to_client((struct file_state *)userdata, full_path, path);
             DLOG("watdfs_cli_download return code ===== %d", ret);
             int fh_ret = open(cache_path, O_RDONLY);
             ret = stat(cache_path, statbuf);  // 文件已在本地存在，所以不会失败
@@ -1661,7 +1662,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
         if (get_flag(userdata, cache_path) == O_RDONLY) {
             // check freshness
             if (!is_fresh(userdata, path)) {
-                ret = download_to_client((struct file_state *)userdata, path); // 不可能失败，因为文件一定存在，并且以在server上以只读的形式打开
+                ret = download_to_client((struct file_state *)userdata, full_path, path); // 不可能失败，因为文件一定存在，并且以在server上以只读的形式打开
                 // 已经打开的文件，fh没有从open_file里删掉，也没有可以关闭文件，相当于没有关闭，因此没必要重新打开
                 DLOG("watdfs_cli_download return code ===== %d", ret);
                 if(ret < 0){
