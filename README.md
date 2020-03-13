@@ -10,7 +10,6 @@ Below is a diagram that traces the steps (indicated by numbered arrows) that a f
 
 I have implemented both the client and server components with features including mutual exclusion, file freshness check and atomic read & write ...
 
-<img src="/Users/gabriel/Desktop/Screen Shot 2020-03-13 at 7.37.57 PM.png" alt="Screen Shot 2020-03-13 at 7.37.57 PM" style="zoom:30%;" />
 
 ####  1. Ideas of Design and Functionalities
 
