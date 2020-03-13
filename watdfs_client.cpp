@@ -2204,6 +2204,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
         return -EPERM;
     }else{
         if(get_flag(userdata, cache_path) == O_RDONLY){
+          DLOG("weird2");
             fxn_ret = -EMFILE;
         }else{
             write_ret = pwrite(get_fh(userdata, cache_path), buf, size, offset);
