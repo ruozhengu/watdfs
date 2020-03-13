@@ -1274,7 +1274,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     // open local file
     sys_ret = open(full_path, flag4); //TODO???
 
-    if (sys_ret < 0){
+    if (ret_code < 0){
       DLOG("push error");
       delete statbuf;
       delete fi;
