@@ -2182,11 +2182,11 @@ void check_fresh_then_load(void *userdata, const char * full_path, const char *p
 //     return fxn_ret;
 // }
 int get_flag(void *userdata, char *cache_path){
-    return ((file_state*)user->openFiles)[std::string(cache_path)].client_mode & O_ACCMODE;
+    return ((file_state*)userdata->openFiles)[std::string(cache_path)].client_mode & O_ACCMODE;
 }
 
 int get_fh(void *userdata, char *cache_path){
-    return ((file_state*)user->openFiles)[std::string(cache_path)].server_mode;
+    return ((file_state*)userdata->openFiles)[std::string(cache_path)].server_mode;
 
 }
 int watdfs_cli_write(void *userdata, const char *path, const char *buf,
