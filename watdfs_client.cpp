@@ -2200,6 +2200,7 @@ int watdfs_cli_write(void *userdata, const char *path, const char *buf,
 
     // check open
     if(!is_file_open((file_state*)userdata, cache_path)){
+      DLOG("weird");
         return -EPERM;
     }else{
         if(get_flag(userdata, cache_path) == O_RDONLY){
