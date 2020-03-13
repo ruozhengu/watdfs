@@ -11,8 +11,8 @@ WATDFS_CLI_FILES= watdfs_client.cpp
 WATDFS_CLI_OBJS= watdfs_client.o
 
 # Add files you want to go into your server here.
-WATDFS_SERVER_FILES = watdfs_server.cpp
-WATDFS_SERVER_OBJS = watdfs_server.o
+WATDFS_SERVER_FILES = watdfs_server.cpp rw_lock.cpp
+WATDFS_SERVER_OBJS = watdfs_server.o rw_lock.o
 # E.g. for A3 add rw_lock.c and rw_lock.o to the
 # WATDFS_SERVER_FILES and WATDFS_SERVER_OBJS respectively.
 
@@ -73,4 +73,3 @@ zip: clean createzip
 # Update as required.
 createzip:
 	zip -r watdfs.zip $(WATDFS_SERVER_FILES) $(WATDFS_CLI_FILES) Makefile *.h
-
