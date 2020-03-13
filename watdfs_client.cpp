@@ -5,7 +5,7 @@
 #include "watdfs_client.h"
 #include "debug.h"
 INIT_LOG
-
+#include "rw_lock.h"
 #include "rpc.h"
 #include <string>
 #include <cstdint>

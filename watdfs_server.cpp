@@ -7,7 +7,7 @@
 #include "rpc.h"
 #include "debug.h"
 INIT_LOG
-#include "rw_lock.h"
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -20,6 +20,7 @@ INIT_LOG
 #include <cstdlib>
 #define LOCK -666
 #define UNLOCK -667
+#include "rw_lock.h"
 // Global state server_persist_dir.
 char *server_persist_dir = nullptr;
 
