@@ -1436,6 +1436,7 @@ int freshness_check(struct file_state *userdata, const char *full_path, const ch
         free(statServer);
         return sys_ret;
     }
+    DLOG("checking freshness: getattr call good");
     fxn_ret = sys_ret;
 
     time_t T_client = statClient->st_mtime;
@@ -1449,13 +1450,11 @@ int freshness_check(struct file_state *userdata, const char *full_path, const ch
     free(statServer);
 
     if (server_client_diff || within_interval) {
-
+      DLOG("checking freshness: cond true");
       // update the open time to curr
       (userdata->openFiles)[std::string(full_path)].tc = time(0);
-      DLOG("freshness result: true");
       return 1;
     } else {
-      DLOG("freshness result: false");
       return 0;
     }
 }
