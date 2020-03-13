@@ -1252,16 +1252,17 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     fi->flags = flag1;
 
     struct stat *statbuf = new struct stat;
-    mode_t mt = statbuf->st_mode;
-    dev_t dt = statbuf->st_dev;
+
 
     int ret_code = stat(full_path, statbuf);
+    if (ret_code < 0) DLOG("ret code < 0!!!");
 
     ret_code = rpcCall_open((void *)userdata, path, fi);
 
     // kee looping
     if (ret_code < 0){
-
+      mode_t mt = statbuf->st_mode;
+      dev_t dt = statbuf->st_dev;
       // first create the file
       ret_code = rpcCall_mknod((void *)userdata, path, mt, dt);
       // open the created file. this hsould succeed, othwrwise, loop again
