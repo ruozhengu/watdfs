@@ -1911,7 +1911,7 @@ int file_open_load(void *userdata, const char * full_path, const char *path, str
 }
 
 
-int open_cond(void *userdata, int code, const char *path, struct fuse_file_info *fi, int f) {
+int open_cond(void *userdata, int code, const char *full_path, const char *path, struct fuse_file_info *fi, int f) {
   int fxn_ret = 0;
   if (fi->flags != f) {
     return code;
@@ -1948,7 +1948,7 @@ int watdfs_cli_open(void *userdata, const char *path,
     DLOG("open after getattr");
     if (ret_code < 0) {
       DLOG("OPENERROR18");
-      fxn_ret = open_cond(userdata, ret_code, path, fi, O_CREAT);
+      fxn_ret = open_cond(userdata, ret_code, full_path, path, fi, O_CREAT);
     } else {
       ret_code = download_to_client((file_state*)userdata, full_path, path);
       DLOG("open after download");
