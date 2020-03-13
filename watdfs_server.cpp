@@ -182,7 +182,7 @@ int watdfs_open(int *argTypes, void **args) {
     if (!is_file_open) {
       // init
       struct file_critical_section newMeta ;
-      newMeta->lock = new rw_lock_t; // to be free
+      newMeta.lock = new rw_lock_t; // to be free
       fileMutex[std::string(short_path)] = newMeta;
       rw_lock_init((fileMutex[std::string(short_path)]).lock);
       (fileMutex[std::string(short_path)]).read = fi->flags == O_RDONLY ? true : false;
