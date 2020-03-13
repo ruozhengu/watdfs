@@ -2059,12 +2059,17 @@ int watdfs_cli_open(void *userdata, const char *path,
 
     // check whether file exists on server
     ret_code = rpcCall_getattr(userdata, path, statbuf);
-
+    DLOG("open after getattr");
     if (ret_code < 0) {
+      DLOG("OPENERROR18");
       fxn_ret = open_cond(userdata, ret_code, path, fi, O_CREAT);
     } else {
       ret_code = watdfs_cli_download(userdata, path);
-      if (ret_code < 0) fxn_ret = ret_code;
+      DLOG("open after download");
+      if (ret_code < 0) {
+        DLOG("OPENERROR19");
+        fxn_ret = ret_code;
+      }
     }
 
     if (fxn_ret){
