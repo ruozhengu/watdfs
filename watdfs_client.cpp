@@ -1275,11 +1275,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     sys_ret = open(full_path, flag4); //TODO???
 
     if (ret_code < 0){
-      DLOG("push error");
-      delete statbuf;
-      delete fi;
-      //unlock(path, RW_READ_LOCK);
-      return -errno;
+      fxn_ret = -errno;
     }
     // loop until a new file is created
     // while (sys_ret < 0) {
@@ -1316,11 +1312,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     ret_code = pread(sys_ret, buf, size, 0);
 
     if (ret_code < 0){
-      DLOG("push error2");
-      //unlock(path, RW_READ_LOCK);
-      free(buf);
-      delete statbuf;
-      return -errno;
+      fxn_ret = -errno;
     }
 
     // step1: truncate local file
@@ -1328,19 +1320,13 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
 
     if (ret_code < 0){
       DLOG("push error3");
-      delete statbuf;
-      delete fi;
-      //unlock(path, RW_READ_LOCK);
-      return ret_code;
+      fxn_ret = -errno;
     }
 
     ret_code = rpcCall_write((void*)userdata, path, buf, (off_t) size, 0, fi);
     if(ret_code < 0){
       DLOG("push error4");
-      delete statbuf;
-      delete fi;
-      //unlock(path, RW_READ_LOCK);
-      return ret_code;
+      fxn_ret = -errno;
     }
 
     // update metadata
@@ -1359,19 +1345,13 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     ret_code = rpcCall_utimens((void *)userdata, path, ts);
     if (ret_code < 0) {
       DLOG("push error5");
-      delete statbuf;
-      delete fi;
-      //unlock(path, RW_READ_LOCK);
-      return ret_code;
+
     }
 
     ret_code = rpcCall_getattr((void *)userdata, path, statbuf);
     if (ret_code < 0) {
       DLOG("push error6");
-      delete statbuf;
-      delete fi;
-      //unlock(path, RW_READ_LOCK);
-      return ret_code;
+
     }
 
     // //TODO??? STAT?
