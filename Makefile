@@ -73,3 +73,4 @@ zip: clean createzip
 # Update as required.
 createzip:
 	zip -r watdfs.zip $(WATDFS_SERVER_FILES) $(WATDFS_CLI_FILES) Makefile *.h
+
