@@ -1768,7 +1768,7 @@ int watdfs_cli_getattr(void *userdata, const char *path, struct stat *statbuf){
       struct stat *statbuf_tmp = new struct stat;
       //read only the file, file already opened
       if (flag1 == (((struct file_state*)userdata)->openFiles)[p].client_mode &
-            flag2 && !freshness_check((file_state*)userdata, full_name, name)) {
+            flag2 && !freshness_check((file_state*)userdata, full_path, path)) {
         // read only, check freshness, download file
         DLOG("stat downloading file");
 
@@ -1859,7 +1859,7 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
 
       //read only the file, file already opened
       if ((flag1 == ((((struct file_state*)userdata)->openFiles)[p].client_mode &
-            flag2)) && (!freshness_check((file_state*)userdata, full_name, name))) {
+            flag2)) && (!freshness_check((file_state*)userdata, full_path, path))) {
         // read only, check freshness, download file
         DLOG("stat downloading file");
 
@@ -1908,7 +1908,7 @@ int mknod_update(void *userdata, const char *full_path, const char *path, int fl
   ret_code = mknod(full_path, mode, dev);
   if (ret_code < 0) return -errno;
 
-  if(!freshness_check((file_state*)userdata, full_name, name)){
+  if(!freshness_check((file_state*)userdata, full_path, path)){
       ret_code = watdfs_cli_upload(userdata, path);
       if(ret_code < 0) return ret_code;
       time_to_curr(userdata, full_path);
@@ -2093,7 +2093,7 @@ int watdfs_cli_read(void *userdata, const char *path, char *buf, size_t size,
       return fxn_ret;
     }
 
-    int ret_code = freshness_check((file_state*)userdata, full_name, name);
+    int ret_code = freshness_check((file_state*)userdata, full_path, path);
     if (ret_code == 0) {
       ret_code = watdfs_cli_download(userdata, path);
       if (ret_code < 0) return -EPERM;
@@ -2159,7 +2159,7 @@ int truncate_update(void *userdata, int flag, const char* full_path, const char*
     if (ret_code < 0) {
       return -errno;
     }
-    if (!freshness_check((file_state*)userdata, full_name, name)) {
+    if (!freshness_check((file_state*)userdata, full_path, path)) {
       ret_code = watdfs_cli_upload(userdata, path);
       // set time to current
       (((struct file_state*)userdata)->openFiles)[std::string(full_path)].tc = time(0);
@@ -2247,7 +2247,7 @@ int utimens_update(void *userdata, int flag, const char* full_path, const char* 
     if (ret_code < 0) {
       return -errno;
     }
-    if (!freshness_check((file_state*)userdata, full_name, name)) {
+    if (!freshness_check((file_state*)userdata, full_path, path)) {
       // set time to current
       ret_code = watdfs_cli_upload(userdata, path);
       if (ret_code < 0) return ret_code;
