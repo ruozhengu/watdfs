@@ -2047,6 +2047,7 @@ int watdfs_cli_open(void *userdata, const char *path,
     // validate if file open, and prepare for downloading the data to client
     if(is_file_open((struct file_state *)userdata, full_path)){
       DLOG("already open error");
+      DLOG("OPENERROR2");
       free(full_path);
       return -EMFILE;
     }
@@ -2070,6 +2071,7 @@ int watdfs_cli_open(void *userdata, const char *path,
       // record the file on the map
       ret_code = open(full_path, fi->flags);
       if (ret_code < 0) {
+        DLOG("OPENERROR1");
         free(full_path);
         free(statbuf);
         return -errno;
@@ -2081,6 +2083,7 @@ int watdfs_cli_open(void *userdata, const char *path,
       fxn_ret = 0;
     } else {
       fxn_ret = -errno;
+      DLOG("OPENERROR3");
     }
 
     free(full_path);
