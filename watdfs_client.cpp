@@ -1092,6 +1092,11 @@ static int _write(int ret, const char *path, const char *buf, size_t size,
   return sys_ret;
 }
 
+void time_to_curr(void *userdata, char *full_path) {
+  time_t curr = time(0);
+  (userdata->openFiles)[std::string(full_path)].tc = curr;
+}
+
 static int download_to_client(struct file_state *userdata, const char *full_path,
                   const char *path){
 
@@ -1666,18 +1671,8 @@ void watdfs_cli_destroy(void *userdata) {
     // delete userdata;
     userdata = NULL;
 }
-int get_flag(void *userdata, char *cache_path){
-    struct file_state *user = (struct file_state *)userdata;
-    std::string s_cache_path(cache_path);
-    return (user->openFiles)[s_cache_path].client_mode & O_ACCMODE;
-}
-void reset_tc(void *userdata, char *cache_path){
-    struct file_state *user = (file_state *)userdata;
-    std::string s_cache_path(cache_path);
-    (user->openFiles)[s_cache_path].tc = time(0);
 
-    //cout << "【 tc for this filel is :" << get_tc(userdata, cache_path) << " 】"<< endl;
-}
+
 bool is_fresh(void *userdata, const char *path){    // file is confirmed on both of client and server
     //cout << "*********** current time is:  " << time(0) << "  *************"<< std::endl;
     char *cache_path = get_full_path((struct file_state*)userdata, path);
@@ -1702,7 +1697,7 @@ bool is_fresh(void *userdata, const char *path){    // file is confirmed on both
         }
 
         if(stat_client -> st_mtime == stat_server->st_mtime){ // modify is the same on both of client and server
-            reset_tc(userdata, cache_path);
+            time_to_curr(userdata, full_path);
             free(stat_client);
             free(stat_server);
             DLOG("【T_server = T_client, fresh】");
@@ -1954,18 +1949,19 @@ int watdfs_cli_fgetattr(void *userdata, const char *path, struct stat *statbuf,
     // FINAL RETURN THE HANDLER CODE
     return fxn_ret;
 }
-int mknod_update(void *userdata, const char *full_path, const char *path, int flag) {
+int mknod_update(void *userdata, const char *full_path, const char *path, int flag,
+                  mode_t mode, dev_t dev) {
   int fxn_ret = 0;
   int ret_code = 0;
   if(flag == O_RDONLY) return -EMFILE;
 
-  ret_code = mknod(cache_path, mode, dev);
+  ret_code = mknod(full_path, mode, dev);
   if (ret_code < 0) return -errno;
 
   if(!is_fresh(userdata, path)){
-      ret = watdfs_cli_upload(userdata, path);
-      if(ret < 0) return ret;
-      reset_tc(userdata, cache_path);
+      ret_code = watdfs_cli_upload(userdata, path);
+      if(ret_code < 0) return ret_code;
+      time_to_curr(userdata, full_path);
   } else {
     return 0;
   }
@@ -1988,7 +1984,7 @@ int watdfs_cli_mknod(void *userdata, const char *path, mode_t mode, dev_t dev) {
       fxn_ret = fxn_ret < 0 ? fxn_ret : 0;
     } else {
       int fl = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].client_mode;
-      fxn_ret = mknod_update(userdata, full_path, path, fl);
+      fxn_ret = mknod_update(userdata, full_path, path, fl, mode, dev);
     }
 
     // Clean up the memory we have allocated.
