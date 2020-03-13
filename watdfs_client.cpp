@@ -2041,7 +2041,7 @@ int watdfs_cli_open(void *userdata, const char *path,
       ret_code = open(full_path, fi->flags);
       if (ret_code < 0) {
         free(full_path);
-        free(stßatbuf);
+        free(statbuf);
         return -errno;
       }
       DLOG("open: record this file now");
