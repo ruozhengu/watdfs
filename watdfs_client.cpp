@@ -1106,8 +1106,8 @@ static int download_to_client(struct file_state *userdata, const char *full_path
 
     int fxn_ret;
     //lock it up first
-    // int sys_ret = lock(path, RW_READ_LOCK);
-    int sys_ret = 0;
+    int sys_ret = lock(path, RW_READ_LOCK);
+    // int sys_ret = 0;
     if (sys_ret < 0){
 
       DLOG("download lock acquire error");
@@ -1206,15 +1206,15 @@ static int download_to_client(struct file_state *userdata, const char *full_path
       if(ret_code < 0) fxn_ret = -errno;
 
 
-      //rpc_ret = unlock(path, RW_READ_LOCK);
+      rpc_ret = unlock(path, RW_READ_LOCK);
 
-      // if (rpc_ret < 0){
-      //   DLOG("download error");
-      //   free(buf);
-      //   // delete ts;
-      //   delete statbuf;
-      //   return sys_ret;
-      // }
+      if (rpc_ret < 0){
+        DLOG("download error");
+        free(buf);
+        // delete ts;
+        delete statbuf;
+        return sys_ret;
+      }
 
       DLOG("download succeed");
 
@@ -1236,7 +1236,7 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
 
   int fxn_ret;
   //lock it up first
-  int sys_ret = 0;//lock(path, RW_READ_LOCK);
+  int sys_ret = lock(path, RW_READ_LOCK);
 
   if (sys_ret < 0){
 
@@ -1378,15 +1378,15 @@ static int push_to_server(struct file_state *userdata, const char *full_path, co
     //   return -errno;
     // }
 
-    // ret_code = unlock(path, RW_READ_LOCK);
-    //
-    // if (ret_code < 0){
-    //   DLOG("push error3");
-    //   free(buf);
-    //   // delete ts;
-    //   delete statbuf;
-    //   return sys_ret;
-    // }
+    ret_code = unlock(path, RW_READ_LOCK);
+
+    if (ret_code < 0){
+      DLOG("push error3");
+      free(buf);
+      // delete ts;
+      delete statbuf;
+      return sys_ret;
+    }
 
     DLOG("Push succeed");
 

@@ -15,10 +15,23 @@ INIT_LOG
 #include <cstring>
 #include <cstdlib>
 #include <fuse.h>
-
+#include <map>
+#include <cstring>
+#include <cstdlib>
 
 // Global state server_persist_dir.
 char *server_persist_dir = nullptr;
+
+// for mutex
+struct file_critical_section{
+    bool read; // true for r and false for w
+    rw_lock_t * lock ;
+};
+
+
+std::map<std::string, struct file_critical_section> filesMutex;
+
+
 
 // Important: the server needs to handle multiple concurrent client requests.
 // You have to be carefuly in handling global variables, esp. for updating them.
@@ -135,6 +148,10 @@ int watdfs_fgetattr(int *argTypes, void **args) {
     return 0;
 }
 
+bool is_file_open(std::map<std::string, struct file_critical_section>arr, const char *path) {
+  return arr.find(std::string(path)) != arr.end();
+}
+
 int watdfs_open(int *argTypes, void **args) {
 
     DLOG("start sys call: open");
@@ -158,6 +175,26 @@ int watdfs_open(int *argTypes, void **args) {
 
     // Let sys_ret be the return code from the stat system call.
     int sys_ret = 0;
+
+    // A3:
+    bool is_file_open = fileMutex.find(std::string(short_path) != fileMutex.end();
+
+    if (!is_file_open) {
+      // init
+      struct fileMetadata newMeta ;
+      newMeta->lock = new rw_lock_t; // to be free
+      fileMutex[std::string(short_path)] = newMeta;
+      rw_lock_init((fileMutex[std::string(short_path)]).lock);
+      (fileMutex[std::string(short_path)]).read = fi->flags == O_RDONLY ? true : false;
+    } else if ((fileMutex[std::string(short_path)]).read) {
+        if (fi->flags == O_RDWR) {
+          (fileMutex[std::string(short_path)]).read = false;
+        } else {
+          if (!((fileMutex[std::string(short_path)]).read) && fi->flags == O_RDWR)return EACCES;
+        }
+    } else {
+      if (!((fileMutex[std::string(short_path)]).read) && fi->flags == O_RDWR) return EACCES;
+    }
 
     sys_ret = open(full_path, fi->flags);
 
@@ -487,7 +524,43 @@ int watdfs_release(int *argTypes, void **args) {
     return 0;
 }
 
+int watdfs_lock(int *argTypes, void **args){
 
+    char *short_path = (char*)args[0];
+    char *full_path = get_full_path(short_path);
+
+
+    int *ret = (int*)args[2];
+    *ret = 0;
+
+    int sys_ret = 0;
+
+    int r_w = (fileMutex[std::string(short_path)]).read ? 0 : 1;
+    sys_ret = rw_lock_lock((fileMutex[std::string(short_path)]).lock, *((rw_lock_mode_t *)args[1]));
+    if (sys_ret < 0) *ret = -666;
+    else  *ret = sys_ret;
+
+    free(full_path);
+
+    return 0;
+}
+
+int watdfs_unlock(int *argTypes, void **args){
+
+    char *short_path = (char*)args[0];
+
+    int *ret = (int * )args[2];
+    *ret = 0;
+
+    int sys_ret = 0;
+
+    int r_w = (fileMutex[std::string(short_path)]).read ? 0 : 1;
+    sys_ret = rw_lock_unlock((fileMutex[std::string(short_path)]).lock, *((rw_lock_mode_t *)args[1]));
+    if (sys_ret < 0) *ret = -667;
+    else *ret = sys_ret;
+
+    return 0;
+}
 
 // The main function of the server.
 int main(int argc, char *argv[]) {
@@ -758,37 +831,37 @@ int main(int argc, char *argv[]) {
         DLOG("Register: utimens succeed ... ");
     }
 
-    // { //lock
-    //
-    //     int num_args = 3;
-    //     int argTypes[num_args + 1];
-    //
-    //     argTypes[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) | (ARG_CHAR << 16) | 1;
-    //     argTypes[1] = (1 << ARG_INPUT) | (ARG_INT << 16) ;
-    //     argTypes[2] = (1 << ARG_OUTPUT) | (ARG_INT << 16) ;
-    //     argTypes[3] = 0;
-    //
-    //     // We need to register the function with the types and the name.
-    //     ret = rpcRegister((char*)"lock", argTypes, watdfs_lock);
-    //     if (ret < 0) return ret;
-    //
-    // }
-    //
-    // { //unlock
-    //
-    //     int num_args = 3;
-    //     int argTypes[num_args + 1];
-    //
-    //     argTypes[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) | (ARG_CHAR << 16) | 1;
-    //     argTypes[1] = (1 << ARG_INPUT) | (ARG_INT << 16) ;
-    //     argTypes[2] = (1 << ARG_OUTPUT) | (ARG_INT << 16) ;
-    //     argTypes[3] = 0;
-    //
-    //     // We need to register the function with the types and the name.
-    //     ret = rpcRegister((char*)"unlock", argTypes, watdfs_unlock);
-    //     if (ret < 0) return ret;
-    //
-    // }
+    { //lock
+
+        int num_args = 3;
+        int argTypes[num_args + 1];
+
+        argTypes[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) | (ARG_CHAR << 16) | 1;
+        argTypes[1] = (1 << ARG_INPUT) | (ARG_INT << 16) ;
+        argTypes[2] = (1 << ARG_OUTPUT) | (ARG_INT << 16) ;
+        argTypes[3] = 0;
+
+        // We need to register the function with the types and the name.
+        ret = rpcRegister((char*)"lock", argTypes, watdfs_lock);
+        if (ret < 0) return ret;
+
+    }
+
+    { //unlock
+
+        int num_args = 3;
+        int argTypes[num_args + 1];
+
+        argTypes[0] = (1 << ARG_INPUT) | (1 << ARG_ARRAY) | (ARG_CHAR << 16) | 1;
+        argTypes[1] = (1 << ARG_INPUT) | (ARG_INT << 16) ;
+        argTypes[2] = (1 << ARG_OUTPUT) | (ARG_INT << 16) ;
+        argTypes[3] = 0;
+
+        // We need to register the function with the types and the name.
+        ret = rpcRegister((char*)"unlock", argTypes, watdfs_unlock);
+        if (ret < 0) return ret;
+
+    }
 
     // TODO: Hand over control to the RPC library by calling `rpcExecute`.
     ret_code = rpcExecute();
@@ -798,6 +871,10 @@ int main(int argc, char *argv[]) {
         DLOG("Executing server succeed...");
     } else{
         DLOG("Executing server Fail...");
+    }
+    for (auto it : fileMutex) {
+      rw_lock_destroy(it.second.lock);
+
     }
     // rpcExecute could fail so you may want to have debug-printing here, and
     // then you should return.
