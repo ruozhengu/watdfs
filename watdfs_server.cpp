@@ -14,6 +14,7 @@ INIT_LOG
 #include <errno.h>
 #include <cstring>
 #include <cstdlib>
+#include <fuse.h>
 #include <map>
 #include <cstring>
 #include <cstdlib>

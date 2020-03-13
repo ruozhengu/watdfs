@@ -1,4 +1,3 @@
 watdfs_client.o: watdfs_client.cpp watdfs_client.h \
-  /usr/local/include/osxfuse/fuse/fuse.h \
-  /usr/local/include/osxfuse/fuse/fuse_common.h \
-  /usr/local/include/osxfuse/fuse/fuse_opt.h rw_lock.h debug.h rpc.h
+ /usr/include/fuse/fuse.h /usr/include/fuse/fuse_common.h \
+ /usr/include/fuse/fuse_opt.h rpcCall.h debug.h rpc.h
