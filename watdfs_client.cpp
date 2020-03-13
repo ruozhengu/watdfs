@@ -1050,7 +1050,7 @@ static int unlock(const char *path, int mode){
 // ------------ define util functions below ----------------------
 bool is_file_open(struct file_state *userdata, const char *full_path){
 
-    
+
     return (userdata->openFiles).find(std::string(full_path)) != (userdata->openFiles).end();
 }
 
@@ -2149,37 +2149,88 @@ void check_fresh_then_load(void *userdata, const char * full_path, const char *p
   }
 
 }
+//
+// int watdfs_cli_write(void *userdata, const char *path, const char *buf,
+//                      size_t size, off_t offset, struct fuse_file_info *fi) {
+//
+//     DLOG("Received write rpcCall from local client...");
+//
+//     int fxn_ret = 0;
+//     int ret_code = 0;
+//     char *full_path = get_full_path((struct file_state *)userdata, path);
+//
+//     if(!is_file_open((struct file_state *)userdata, full_path)){
+//       DLOG("error in write");
+//       free(full_path);
+//       return -EPERM;
+//     }
+//
+//     struct stat *statbuf = new struct stat;
+//
+//     int serverM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode;
+//
+//     ret_code = pwrite(serverM, buf, size, offset);
+//
+//     if (ret_code < 0) fxn_ret = -errno;
+//     else check_fresh_then_load(userdata, full_path, path, &fxn_ret);
+//
+//     // free memory
+//     free(full_path);
+//     free(statbuf);
+//
+//     fxn_ret = fxn_ret < 0 ? fxn_ret : ret_code;
+//     return fxn_ret;
+// }
+int get_flag(void *userdata, char *cache_path){
+    return ((file_state*)user->openFiles)[std::string(cache_path)].client_mode & O_ACCMODE;
+}
 
+int get_fh(void *userdata, char *cache_path){
+    return ((file_state*)user->openFiles)[std::string(cache_path)].server_mode;
+
+}
 int watdfs_cli_write(void *userdata, const char *path, const char *buf,
-                     size_t size, off_t offset, struct fuse_file_info *fi) {
+                     size_t size, off_t offset, struct fuse_file_info *fi){
+    // watdfs_cli_open has been called before this call
+    // file has been opened on client
+    // open file on server
+    struct stat *stat_server = (struct stat *)malloc(sizeof(struct stat));
+    char *cache_path = get_full_path((struct file_state *)userdata, path);
+    int ret, write_ret = 0, fxn_ret = 0;
 
-    DLOG("Received write rpcCall from local client...");
-
-    int fxn_ret = 0;
-    int ret_code = 0;
-    char *full_path = get_full_path((struct file_state *)userdata, path);
-
-    if(!is_file_open((struct file_state *)userdata, full_path)){
-      DLOG("error in write");
-      free(full_path);
-      return -EPERM;
+    // check open
+    if(!is_file_open((file_state*)userdata, cache_path)){
+        return -EPERM;
+    }else{
+        if(get_flag(userdata, cache_path) == O_RDONLY){
+            fxn_ret = -EMFILE;
+        }else{
+            write_ret = pwrite(get_fh(userdata, cache_path), buf, size, offset);
+            DLOG("write %d characters", write_ret);
+            DLOG("write to buf in watdfs_cli_write is %s", buf);
+            if(write_ret < 0){
+                DLOG("watdfs_cli_write fail");
+                fxn_ret = -errno;
+            }else{
+                DLOG("write from buf to client success, start to check fresh");
+                if(!is_fresh(userdata, path)){
+                    ret = watdfs_cli_upload(userdata, path);
+                    time_to_curr(userdata, cache_path);
+                    if(ret < 0){
+                        fxn_ret = ret;
+                    }
+                }
+            }
+        }
     }
 
-    struct stat *statbuf = new struct stat;
-
-    int serverM = (((struct file_state*)userdata)->openFiles)[std::string(full_path)].server_mode;
-
-    ret_code = pwrite(serverM, buf, size, offset);
-
-    if (ret_code < 0) fxn_ret = -errno;
-    else check_fresh_then_load(userdata, full_path, path, &fxn_ret);
-
-    // free memory
-    free(full_path);
-    free(statbuf);
-
-    fxn_ret = fxn_ret < 0 ? fxn_ret : ret_code;
-    return fxn_ret;
+    free(stat_server);
+    free(cache_path);
+    if(fxn_ret < 0){
+        return fxn_ret;
+    }else{
+        return write_ret;
+    }
 }
 
 int truncate_update(void *userdata, int flag, const char* full_path, const char* path, off_t newsize) {
